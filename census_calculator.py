@@ -168,9 +168,17 @@ def calcular_poblacion_interseccion(kml_poly, pad_df, secc_df, n_points=None):
         
         # Check if any point is in both polygons
         in_seccion = [point_in_polygon(x, y, secc_poly) for x, y in zip(x_rand, y_rand)]
-        in_both = any(point_in_polygon(x, y, kml_poly) for i, (x, y) in enumerate(zip(x_rand, y_rand)) if in_seccion[i])
         
-        if in_both:
+        # Calculate intersection ratio for the quick check
+        n_in_secc = sum(in_seccion)
+        if n_in_secc == 0:
+            continue
+        
+        in_kml_count = sum(1 for i, in_s in enumerate(in_seccion) if in_s and point_in_polygon(x_rand[i], y_rand[i], kml_poly))
+        ratio = in_kml_count / n_in_secc
+        
+        # Only consider zones with at least 10% intersection in the quick check
+        if ratio >= 0.10:
             seccion_key = f"{int(row['codi_districte']):02d}{int(row['codi_seccio_censal']):03d}"
             pop_row = pad_df[pad_df['Seccio_Censal'] == int(seccion_key)]
             if not pop_row.empty:
@@ -222,7 +230,10 @@ def calcular_poblacion_interseccion(kml_poly, pad_df, secc_df, n_points=None):
         in_kml_count = sum(1 for x, y in zip(x_in_secc, y_in_secc) if point_in_polygon(x, y, kml_poly))
         
         ratio = in_kml_count / n_in_seccion
-        total_pop += poblacion * ratio
+        
+        # Only add population if intersection is at least 10%
+        if ratio >= 0.10:
+            total_pop += poblacion * ratio
     
     return round(total_pop)
 
@@ -342,8 +353,10 @@ def get_zone_statistics(kml_poly, secc_df, pad_df, n_points=None):
         ])
         n_in_interseccion = np.sum(in_kml)
         
-        # Only include zones that actually intersect (have points in intersection)
-        if n_in_interseccion > 0:
+        ratio = n_in_interseccion / n_in_seccion if n_in_seccion > 0 else 0
+        
+        # Use 10% threshold (0.10) to filter out zones that barely touch the KML
+        if ratio >= 0.10:
             intersecting_zones.append({
                 'district': row['nom_districte'],
                 'neighborhood': row['nom_barri'],
