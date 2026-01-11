@@ -22,7 +22,7 @@ El proyecto utiliza datos oficiales del Ayuntamiento de Barcelona:
 
 1.  **Clonar el repositorio y entrar en el directorio**:
     ```bash
-    git clone https://github.com/tu-usuario/Censo-Territorio.git
+    git clone https://github.com/erpallaga/Censo-Territorio.git
     cd Censo-Territorio
     ```
 
