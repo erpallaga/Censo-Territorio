@@ -1,6 +1,6 @@
 # Censo Territorio - Barcelona
 
-Esta aplicación web permite visualizar datos demográficos detallados de Barcelona y realizar cálculos de población en áreas personalizadas definidas mediante archivos KML. Es una herramienta diseñada para el análisis urbanístico y demográfico de precisión.
+Esta aplicación web permite visualizar datos demográficos detallados de Barcelona y realizar cálculos de población en áreas personalizadas definidas mediante archivos KML.
 
 ## 📊 Fuentes de Datos (Open Data Barcelona)
 
