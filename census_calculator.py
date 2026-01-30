@@ -90,8 +90,10 @@ def parse_wkt_polygon(wkt):
             # Remove any opening parentheses at the start
             part = part.lstrip('(').strip()
             try:
-                lon, lat = map(float, part.split())
-                coords.append((lon, lat))
+                # Handle 2D or 3D coordinates (x y z ...)
+                vals = list(map(float, part.split()))
+                if len(vals) >= 2:
+                    coords.append((vals[0], vals[1]))
             except (ValueError, IndexError):
                 # Skip malformed coordinate pairs
                 continue
@@ -134,10 +136,11 @@ def calculate_polygon_area(coords):
     return area
 
 # 4. Calcular población en intersección
-def calcular_poblacion_interseccion(kml_poly, pad_df, secc_df, n_points=None):
+def calcular_poblacion_interseccion(kml_poly, pad_df, secc_df, n_points=None, join_key_geo='seccion_key', join_key_pop='Seccio_Censal'):
     """
     Calculate population in the intersection of KML polygon with census zones
     using dynamic Monte Carlo sampling based on the number of affected zones.
+    Note: join_key_geo can be a dict (the full city_config) for better flexibility.
     """
     # Get bbox of KML polygon for filtering
     min_lon, min_lat = kml_poly.min(axis=0)
@@ -146,8 +149,16 @@ def calcular_poblacion_interseccion(kml_poly, pad_df, secc_df, n_points=None):
     # Pass 1: Find truly intersecting zones and collect their data
     intersecting_data = []
     
+    # Get column name from config if available
+    col_geo = 'geometria_wgs84'
+    if isinstance(join_key_geo, dict): # Check if config was passed instead
+        config = join_key_geo
+        col_geo = config.get('col_geometry', 'geometria_wgs84')
+        join_key_geo = config['join_key_geo']
+        join_key_pop = config['join_key_pop']
+    
     for _, row in secc_df.iterrows():
-        wkt = row['geometria_wgs84']
+        wkt = row[col_geo]
         secc_poly = parse_wkt_polygon(wkt)
         if secc_poly is None:
             continue
@@ -179,8 +190,8 @@ def calcular_poblacion_interseccion(kml_poly, pad_df, secc_df, n_points=None):
         
         # Only consider zones with at least 10% intersection in the quick check
         if ratio >= 0.10:
-            seccion_key = f"{int(row['codi_districte']):02d}{int(row['codi_seccio_censal']):03d}"
-            pop_row = pad_df[pad_df['Seccio_Censal'] == int(seccion_key)]
+            seccion_key_val = row[join_key_geo]
+            pop_row = pad_df[pad_df[join_key_pop] == seccion_key_val]
             if not pop_row.empty:
                 intersecting_data.append({
                     'secc_poly': secc_poly,
@@ -238,10 +249,24 @@ def calcular_poblacion_interseccion(kml_poly, pad_df, secc_df, n_points=None):
     return round(total_pop)
 
 # 5. Convert census zones to GeoJSON for map display
-def get_census_zones_geojson(secc_df, pad_df, sample_size=None):
+def get_census_zones_geojson(secc_df, pad_df, sample_size=None, city_config=None):
     """Convert census zones to GeoJSON format for map visualization"""
     features = []
     
+    # Default Barcelona config if none provided
+    if city_config is None:
+        city_config = {
+            'join_key_geo': 'seccion_key',
+            'join_key_pop': 'Seccio_Censal',
+            'col_district': 'nom_districte',
+            'col_neighborhood': 'nom_barri',
+            'col_district_code': 'codi_districte',
+            'col_section_code': 'codi_seccio_censal',
+            'col_geometry': 'geometria_wgs84'
+        }
+    
+    col_geo = city_config.get('col_geometry', 'geometria_wgs84')
+
     # Sample if specified, otherwise use all zones
     if sample_size and sample_size < len(secc_df):
         df = secc_df.sample(min(sample_size, len(secc_df)), random_state=42)
@@ -250,7 +275,7 @@ def get_census_zones_geojson(secc_df, pad_df, sample_size=None):
     
     for idx, row in df.iterrows():
         try:
-            wkt = row['geometria_wgs84']
+            wkt = row[col_geo]
             if pd.isna(wkt) or not wkt:
                 continue
                 
@@ -261,11 +286,9 @@ def get_census_zones_geojson(secc_df, pad_df, sample_size=None):
             # Calculate area in square kilometers
             area_km2 = calculate_polygon_area(poly)
             
-            # Get population - handle both string and int codes
-            dist_code = int(row['codi_districte'])
-            sect_code = int(row['codi_seccio_censal'])
-            seccion_key = f"{dist_code:02d}{sect_code:03d}"
-            pop_row = pad_df[pad_df['Seccio_Censal'] == int(seccion_key)]
+            # Get population
+            seccion_key_val = row[city_config['join_key_geo']]
+            pop_row = pad_df[pad_df[city_config['join_key_pop']] == seccion_key_val]
             population = int(pop_row['Valor'].values[0]) if not pop_row.empty else 0
             
             # Calculate density (people per square kilometer)
@@ -274,6 +297,23 @@ def get_census_zones_geojson(secc_df, pad_df, sample_size=None):
             
             coords = [[float(coord[0]), float(coord[1])] for coord in poly]
             
+            # Handle possible missing columns in some datasets
+            dist_name = str(row.get(city_config['col_district'], ''))
+            neigh_name = str(row.get(city_config['col_neighborhood'], ''))
+            dist_code = row.get(city_config['col_district_code'], 0)
+            sect_code = row.get(city_config['col_section_code'], 0)
+
+            # Safer conversion for codes that might be non-numeric (like 'BAR' in LH)
+            try:
+                dist_code_int = int(dist_code) if not pd.isna(dist_code) else 0
+            except (ValueError, TypeError):
+                dist_code_int = 0
+                
+            try:
+                sect_code_int = int(sect_code) if not pd.isna(sect_code) else 0
+            except (ValueError, TypeError):
+                sect_code_int = 0
+
             features.append({
                 'type': 'Feature',
                 'geometry': {
@@ -281,13 +321,14 @@ def get_census_zones_geojson(secc_df, pad_df, sample_size=None):
                     'coordinates': [coords]
                 },
                 'properties': {
-                    'district': str(row['nom_districte']),
-                    'neighborhood': str(row['nom_barri']),
-                    'district_code': int(dist_code),
-                    'section_code': int(sect_code),
+                    'district': dist_name,
+                    'neighborhood': neigh_name,
+                    'district_code': dist_code_int,
+                    'section_code': sect_code_int,
                     'population': int(population),
                     'area_km2': round(area_km2, 4),
-                    'density': round(density, 2)
+                    'density': round(density, 2),
+                    'join_key': str(seccion_key_val)
                 }
             })
         except Exception as e:
@@ -301,18 +342,31 @@ def get_census_zones_geojson(secc_df, pad_df, sample_size=None):
     }
 
 # 6. Get zone statistics
-def get_zone_statistics(kml_poly, secc_df, pad_df, n_points=None):
+def get_zone_statistics(kml_poly, secc_df, pad_df, n_points=None, city_config=None):
     """Get detailed statistics for a zone - only includes zones that actually intersect"""
+    # Default Barcelona config if none provided
+    if city_config is None:
+        city_config = {
+            'join_key_geo': 'seccion_key',
+            'join_key_pop': 'Seccio_Censal',
+            'col_district': 'nom_districte',
+            'col_neighborhood': 'nom_barri',
+            'col_district_code': 'codi_districte',
+            'col_section_code': 'codi_seccio_censal',
+            'col_geometry': 'geometria_wgs84'
+        }
+
+    col_geo = city_config.get('col_geometry', 'geometria_wgs84')
+    
     # Get bbox of KML polygon
     min_lon, min_lat = kml_poly.min(axis=0)
     max_lon, max_lat = kml_poly.max(axis=0)
     
     intersecting_zones = []
-    total_pop = 0.0
     
     # Use same logic as calcular_poblacion_interseccion to find truly intersecting zones
     for _, row in secc_df.iterrows():
-        wkt = row['geometria_wgs84']
+        wkt = row[col_geo]
         secc_poly = parse_wkt_polygon(wkt)
         if secc_poly is None:
             continue
@@ -326,15 +380,14 @@ def get_zone_statistics(kml_poly, secc_df, pad_df, n_points=None):
             s_max_lat < min_lat or s_min_lat > max_lat):
             continue
         
-        seccion_key = f"{int(row['codi_districte']):02d}{int(row['codi_seccio_censal']):03d}"
-        pop_row = pad_df[pad_df['Seccio_Censal'] == int(seccion_key)]
+        seccion_key_val = row[city_config['join_key_geo']]
+        pop_row = pad_df[pad_df[city_config['join_key_pop']] == seccion_key_val]
         if pop_row.empty:
             continue
         
         poblacion = pop_row['Valor'].values[0]
         
         # Quick check with Monte Carlo to see if they actually intersect
-        # Use fewer points for speed, but enough to detect intersection
         calc_n_points = n_points if n_points is not None else 10000
         n_quick = min(calc_n_points // 10, 1000)  # Use 10% of points or max 1000
         x_rand = np.random.uniform(max(s_min_lon, min_lon), min(s_max_lon, max_lon), n_quick)
@@ -357,20 +410,38 @@ def get_zone_statistics(kml_poly, secc_df, pad_df, n_points=None):
         
         # Use 10% threshold (0.10) to filter out zones that barely touch the KML
         if ratio >= 0.10:
+            dist_code = row.get(city_config['col_district_code'], 0)
+            sect_code = row.get(city_config['col_section_code'], 0)
+            
+            try:
+                dist_code_int = int(dist_code) if not pd.isna(dist_code) else 0
+            except (ValueError, TypeError):
+                dist_code_int = 0
+                
+            try:
+                sect_code_int = int(sect_code) if not pd.isna(sect_code) else 0
+            except (ValueError, TypeError):
+                sect_code_int = 0
+
             intersecting_zones.append({
-                'district': row['nom_districte'],
-                'neighborhood': row['nom_barri'],
-                'district_code': int(row['codi_districte']),
-                'section_code': int(row['codi_seccio_censal']),
-                'population': int(poblacion)
+                'district': str(row.get(city_config['col_district'], '')),
+                'neighborhood': str(row.get(city_config['col_neighborhood'], '')),
+                'district_code': dist_code_int,
+                'section_code': sect_code_int,
+                'population': int(poblacion),
+                'join_key': str(seccion_key_val)
             })
     
     # Calculate total population using the full calculation
-    total_pop = calcular_poblacion_interseccion(kml_poly, pad_df, secc_df, n_points=n_points)
+    total_pop = calcular_poblacion_interseccion(
+        kml_poly, pad_df, secc_df, n_points=n_points, 
+        join_key_geo=city_config
+    )
     
     return {
         'total_population': total_pop,
-        'intersecting_zones': intersecting_zones,  # Now only truly intersecting zones
+        'intersecting_zones': intersecting_zones,
         'num_zones': len(intersecting_zones)
     }
+
 

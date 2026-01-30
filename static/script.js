@@ -16,33 +16,24 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
 }).addTo(map);
 
+// Global state
 let censusZonesLayer = null;
 let uploadedZoneLayer = null;
 let densityMax = 0;
 let densityMin = Infinity;
+let currentCity = 'barcelona';
+let visibleDensities = new Set();
 
 // Function to get color based on density ratio (7-step gradation)
 function getDensityColor(ratio) {
-    // 7-step color scale: green -> light green -> yellow-green -> yellow -> orange -> red-orange -> red
-    if (ratio < 0.14) {
-        return '#006837'; // Dark green
-    } else if (ratio < 0.28) {
-        return '#238b45'; // Medium green
-    } else if (ratio < 0.43) {
-        return '#74c476'; // Light green
-    } else if (ratio < 0.57) {
-        return '#fed976'; // Yellow
-    } else if (ratio < 0.71) {
-        return '#fd8d3c'; // Orange
-    } else if (ratio < 0.86) {
-        return '#e31a1c'; // Red-orange
-    } else {
-        return '#99000d'; // Dark red
-    }
+    if (ratio < 0.14) return '#006837'; // Dark green
+    if (ratio < 0.28) return '#238b45'; // Medium green
+    if (ratio < 0.43) return '#74c476'; // Light green
+    if (ratio < 0.57) return '#fed976'; // Yellow
+    if (ratio < 0.71) return '#fd8d3c'; // Orange
+    if (ratio < 0.86) return '#e31a1c'; // Red-orange
+    return '#99000d'; // Dark red
 }
-
-// Global variable to store visible densities for legend calculation
-let visibleDensities = new Set();
 
 // Function to update dynamic legend
 function updateLegend() {
@@ -52,19 +43,15 @@ function updateLegend() {
         return;
     }
 
-    // Collect unique density values and count them
     const uniqueDensities = Array.from(visibleDensities).sort((a, b) => a - b);
     const numUnique = uniqueDensities.length;
-
-    // Calculate steps (between 1 and 7)
     let steps = Math.min(numUnique, 7);
     if (steps === 0) steps = 1;
 
     let legendHTML = '<div style="margin-bottom: 8px;">';
 
     if (densityMax === densityMin || steps === 1) {
-        // Special case: Only one value or all values are the same
-        const color = getDensityColor(0.5); // Use a neutral color from the scale
+        const color = getDensityColor(0.5);
         legendHTML += `
             <div class="legend-item" style="margin-bottom: 6px;">
                 <div class="legend-color" style="background: ${color};"></div>
@@ -73,14 +60,11 @@ function updateLegend() {
         `;
     } else {
         const stepSize = (densityMax - densityMin) / steps;
-
-        // Generate legend items for each color step
         for (let i = 0; i < steps; i++) {
             const ratio = i / (steps - 1);
             const color = getDensityColor(ratio);
             const minD = densityMin + (stepSize * i);
             const maxD = i === steps - 1 ? densityMax : densityMin + (stepSize * (i + 1));
-
             legendHTML += `
                 <div class="legend-item" style="margin-bottom: 6px;">
                     <div class="legend-color" style="background: ${color};"></div>
@@ -95,15 +79,22 @@ function updateLegend() {
     legendContent.innerHTML = legendHTML;
 }
 
-// Load census zones on page load
+// Load census zones for the current city
 async function loadCensusZones() {
     try {
-        // Load all census zones
-        const response = await fetch('/api/census-zones');
+        if (censusZonesLayer) map.removeLayer(censusZonesLayer);
+        if (uploadedZoneLayer) map.removeLayer(uploadedZoneLayer);
+
+        densityMax = 0;
+        densityMin = Infinity;
+        visibleDensities.clear();
+        updateLegend();
+
+        // Load census zones for city
+        const response = await fetch(`/api/census-zones?city=${currentCity}`);
         const geojson = await response.json();
 
-        // Calculate min/max density and unique values for color scaling
-        visibleDensities.clear();
+        // Calculate min/max density
         geojson.features.forEach(feature => {
             const density = feature.properties.density || 0;
             if (density > 0) {
@@ -113,45 +104,30 @@ async function loadCensusZones() {
             }
         });
 
-        // Update dynamic legend
         updateLegend();
 
-        // Add zones to map with color coding based on density
         censusZonesLayer = L.geoJSON(geojson, {
             pane: 'censusPane',
             style: function (feature) {
                 const density = feature.properties.density || 0;
                 const ratio = densityMax > densityMin ? (density - densityMin) / (densityMax - densityMin) : 0.5;
                 const color = getDensityColor(ratio);
-
-                return {
-                    color: '#333',
-                    weight: 1,
-                    fillColor: color,
-                    fillOpacity: 0.6
-                };
+                return { color: '#333', weight: 1, fillColor: color, fillOpacity: 0.6 };
             },
             onEachFeature: function (feature, layer) {
                 const props = feature.properties;
-                const density = props.density || 0;
-                const area = props.area_km2 || 0;
                 layer.bindPopup(`
                     <strong>${props.district}</strong><br>
                     ${props.neighborhood}<br>
-                    Sección: ${props.district_code}${props.section_code}<br>
                     Población: <strong>${props.population.toLocaleString()}</strong><br>
-                    Área: ${area.toFixed(2)} km²<br>
-                    Densidad: <strong>${density.toLocaleString()} hab/km²</strong>
+                    Área: ${(props.area_km2 || 0).toFixed(2)} km²<br>
+                    Densidad: <strong>${(props.density || 0).toLocaleString()} hab/km²</strong>
                 `);
-
-                layer.on('click', function () {
-                    layer.setStyle({ weight: 3, color: '#0066cc' });
-                    setTimeout(() => {
-                        layer.setStyle({ weight: 1, color: '#333' });
-                    }, 2000);
-                });
             }
         }).addTo(map);
+
+        // Zoom to city
+        map.fitBounds(censusZonesLayer.getBounds());
     } catch (error) {
         console.error('Error loading census zones:', error);
         alert('Error al cargar las zonas censales');
@@ -161,14 +137,8 @@ async function loadCensusZones() {
 // Handle form submission
 document.getElementById('upload-form').addEventListener('submit', async function (e) {
     e.preventDefault();
-
     const formData = new FormData(this);
-    const fileInput = document.getElementById('kml-file');
-
-    if (!fileInput.files[0]) {
-        alert('Por favor selecciona un archivo KML');
-        return;
-    }
+    formData.append('city', currentCity);
 
     const loading = document.getElementById('loading');
     const statsPanel = document.getElementById('stats-panel');
@@ -183,158 +153,95 @@ document.getElementById('upload-form').addEventListener('submit', async function
             method: 'POST',
             body: formData
         });
-
         const data = await response.json();
 
         if (response.ok) {
-            // Display statistics
-            document.getElementById('total-population').textContent =
-                data.population.toLocaleString();
-
+            document.getElementById('total-population').textContent = data.population.toLocaleString();
             statsPanel.classList.add('show');
 
-            // Add uploaded zone to map (transparent, only border, behind census zones)
-            if (uploadedZoneLayer) {
-                map.removeLayer(uploadedZoneLayer);
-            }
-
+            if (uploadedZoneLayer) map.removeLayer(uploadedZoneLayer);
             uploadedZoneLayer = L.geoJSON(data.geojson, {
                 pane: 'kmlPane',
-                style: {
-                    color: '#ff0000',
-                    weight: 6,
-                    dashArray: '10, 10',
-                    fillColor: '#ff0000',
-                    fillOpacity: 0.1,
-                    opacity: 1
-                }
+                style: { color: '#ff0000', weight: 6, dashArray: '10, 10', fillOpacity: 0.1 }
             }).addTo(map);
 
-            // Filter census zones to only show intersecting ones
             if (censusZonesLayer) {
-                // Get intersecting zone codes from statistics (these are calculated using proper polygon intersection)
-                const intersectingCodes = new Set();
+                const intersectingKeys = new Set();
                 if (data.statistics && data.statistics.intersecting_zones) {
-                    data.statistics.intersecting_zones.forEach(zone => {
-                        const code = `${zone.district_code.toString().padStart(2, '0')}${zone.section_code.toString().padStart(3, '0')}`;
-                        intersectingCodes.add(parseInt(code));
-                    });
+                    data.statistics.intersecting_zones.forEach(zone => intersectingKeys.add(zone.join_key));
                 }
 
-                // Collect visible zones to recalculate density range
-                const visibleZones = [];
                 visibleDensities.clear();
-
-                // Filter zones: hide non-intersecting ones (ONLY use zone codes from backend, no bbox fallback)
-                censusZonesLayer.eachLayer(function (layer) {
-                    if (layer.feature && layer.feature.properties) {
-                        const props = layer.feature.properties;
-
-                        // Create zone code like backend does
-                        const zoneCode = parseInt(`${props.district_code.toString().padStart(2, '0')}${props.section_code.toString().padStart(3, '0')}`);
-
-                        // Check if zone intersects - ONLY use codes from backend statistics (proper polygon intersection)
-                        const intersects = intersectingCodes.has(zoneCode);
-
-                        if (!intersects) {
-                            // Hide non-intersecting zones
-                            layer.setStyle({ fillOpacity: 0, opacity: 0 });
-                        } else {
-                            // Collect for density recalculation
-                            visibleZones.push(props);
-                            if (props.density > 0) visibleDensities.add(props.density);
-                        }
+                censusZonesLayer.eachLayer(layer => {
+                    const key = layer.feature.properties.join_key;
+                    if (intersectingKeys.has(key)) {
+                        const density = layer.feature.properties.density || 0;
+                        if (density > 0) visibleDensities.add(density);
+                        layer.setStyle({ fillOpacity: 0.6, opacity: 1 });
+                    } else {
+                        layer.setStyle({ fillOpacity: 0, opacity: 0 });
                     }
                 });
 
-                // Recalculate density min/max based only on visible zones
-                let newDensityMax = 0;
-                let newDensityMin = Infinity;
-                visibleZones.forEach(props => {
-                    const density = props.density || 0;
-                    if (density > 0) {
-                        if (density > newDensityMax) newDensityMax = density;
-                        if (density < newDensityMin) newDensityMin = density;
+                // Recalculate range for visible
+                let newMax = 0, newMin = Infinity;
+                visibleDensities.forEach(d => {
+                    if (d > newMax) newMax = d;
+                    if (d < newMin) newMin = d;
+                });
+                if (newMax > 0) { densityMax = newMax; densityMin = newMin; }
+
+                censusZonesLayer.eachLayer(layer => {
+                    if (intersectingKeys.has(layer.feature.properties.join_key)) {
+                        const density = layer.feature.properties.density || 0;
+                        const ratio = densityMax > densityMin ? (density - densityMin) / (densityMax - densityMin) : 0.5;
+                        layer.setStyle({ fillColor: getDensityColor(ratio) });
                     }
                 });
 
-                // Update global density range
-                if (newDensityMax > 0 && newDensityMin < Infinity) {
-                    densityMax = newDensityMax;
-                    densityMin = newDensityMin;
-                }
-
-                // Update colors for visible zones with new density range
-                censusZonesLayer.eachLayer(function (layer) {
-                    if (layer.feature && layer.feature.properties) {
-                        const props = layer.feature.properties;
-                        const zoneCode = parseInt(`${props.district_code.toString().padStart(2, '0')}${props.section_code.toString().padStart(3, '0')}`);
-                        const intersects = intersectingCodes.has(zoneCode);
-
-                        if (intersects) {
-                            // Update color with new density range
-                            const density = props.density || 0;
-                            const ratio = densityMax > densityMin ? (density - densityMin) / (densityMax - densityMin) : 0.5;
-                            const color = getDensityColor(ratio);
-                            layer.setStyle({
-                                fillColor: color,
-                                fillOpacity: 0.6,
-                                opacity: 1,
-                                weight: 1,
-                                color: '#333'
-                            });
-                        }
-                    }
-                });
-
-                // Update legend with new density range
                 updateLegend();
-
-                // Ensure census zones are on top
                 censusZonesLayer.bringToFront();
             }
-
-            // Zoom to uploaded polygon with padding
             map.fitBounds(uploadedZoneLayer.getBounds(), { padding: [50, 50] });
-        } else {
-            alert('Error: ' + (data.error || 'Error desconocido'));
-        }
+        } else alert('Error: ' + data.error);
     } catch (error) {
         console.error('Error:', error);
         alert('Error al procesar el archivo KML');
     } finally {
-        setTimeout(() => {
-            loading.classList.remove('show');
-        }, 500);
+        loading.classList.remove('show');
         calculateBtn.disabled = false;
     }
 });
 
-// Function to reset view - show all zones
-function resetView() {
-    if (censusZonesLayer) {
-        censusZonesLayer.eachLayer(function (layer) {
-            if (layer.feature && layer.feature.properties) {
-                const density = layer.feature.properties.density || 0;
-                const ratio = densityMax > densityMin ? (density - densityMin) / (densityMax - densityMin) : 0;
-                const color = getDensityColor(ratio);
-                layer.setStyle({
-                    fillColor: color,
-                    fillOpacity: 0.6,
-                    opacity: 1,
-                    weight: 1,
-                    color: '#333'
-                });
-            }
-        });
-    }
-    if (censusZonesLayer) {
-        map.fitBounds(censusZonesLayer.getBounds());
-    }
-}
+// City Toggle Listener
+document.getElementById('city-toggle').addEventListener('change', function () {
+    currentCity = this.checked ? 'l_hospitalet' : 'barcelona';
+    loadCensusZones();
+});
 
 // Reset view button
-document.getElementById('reset-view-btn').addEventListener('click', resetView);
+document.getElementById('reset-view-btn').addEventListener('click', () => {
+    if (censusZonesLayer) {
+        // Reset full density range
+        densityMax = 0; densityMin = Infinity;
+        censusZonesLayer.eachLayer(l => {
+            const d = l.feature.properties.density || 0;
+            if (d > 0) {
+                visibleDensities.add(d);
+                if (d > densityMax) densityMax = d;
+                if (d < densityMin) densityMin = d;
+            }
+        });
+        censusZonesLayer.eachLayer(layer => {
+            const d = layer.feature.properties.density || 0;
+            const r = densityMax > densityMin ? (d - densityMin) / (densityMax - densityMin) : 0.5;
+            layer.setStyle({ fillColor: getDensityColor(r), fillOpacity: 0.6, opacity: 1 });
+        });
+        updateLegend();
+        map.fitBounds(censusZonesLayer.getBounds());
+    }
+});
 
-// Load census zones on page load
+// Initial load
 loadCensusZones();
+
