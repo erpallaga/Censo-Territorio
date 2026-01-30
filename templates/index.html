@@ -17,26 +17,16 @@
     <div class="container">
         <div class="header">
             <h1>🗺️ Censo Territorio</h1>
-            <p>Visualización de Datos Censales de Barcelona</p>
+            <p>Estimación de habitantes por territorio. Datos censales de Barcelona y L'Hospitalet</p>
         </div>
 
         <div class="main-content">
             <div class="sidebar">
-                <div class="city-toggle-container">
-                    <span class="city-label">Barcelona</span>
-                    <label class="switch">
-                        <input type="checkbox" id="city-toggle">
-                        <span class="slider round"></span>
-                    </label>
-                    <span class="city-label">L'Hospitalet</span>
-                </div>
-
                 <form id="upload-form">
                     <div class="form-group">
                         <label for="kml-file">Subir archivo KML:</label>
                         <input type="file" id="kml-file" name="kml_file" accept=".kml" required>
                     </div>
-
 
                     <button type="submit" class="btn" id="calculate-btn">Calcular Población</button>
                 </form>
@@ -90,6 +80,12 @@
 
             <div class="map-container">
                 <div id="map"></div>
+                <div id="map-spinner" class="map-overlay-spinner">
+                    <div class="spinner-content">
+                        <div class="loading-ring"></div>
+                        <p>Cargando datos...</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

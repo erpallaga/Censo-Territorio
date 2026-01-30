@@ -21,7 +21,8 @@ let censusZonesLayer = null;
 let uploadedZoneLayer = null;
 let densityMax = 0;
 let densityMin = Infinity;
-let currentCity = 'barcelona';
+let currentCity = 'barcelona'; // Defaults to barcelona for some calculations if needed, but we aggregate now
+const cities = ['barcelona', 'l_hospitalet'];
 let visibleDensities = new Set();
 
 // Function to get color based on density ratio (7-step gradation)
@@ -79,8 +80,9 @@ function updateLegend() {
     legendContent.innerHTML = legendHTML;
 }
 
-// Load census zones for the current city
+// Load census zones for all cities
 async function loadCensusZones() {
+    const mapSpinner = document.getElementById('map-spinner');
     try {
         if (censusZonesLayer) map.removeLayer(censusZonesLayer);
         if (uploadedZoneLayer) map.removeLayer(uploadedZoneLayer);
@@ -90,12 +92,29 @@ async function loadCensusZones() {
         visibleDensities.clear();
         updateLegend();
 
-        // Load census zones for city
-        const response = await fetch(`/api/census-zones?city=${currentCity}`);
-        const geojson = await response.json();
+        if (mapSpinner) mapSpinner.classList.add('show');
+
+        // Load census zones for all cities in parallel
+        const fetchPromises = cities.map(city =>
+            fetch(`/api/census-zones?city=${city}`).then(r => r.json())
+        );
+
+        const results = await Promise.all(fetchPromises);
+
+        // Merge GeoJSON features
+        const combinedGeojson = {
+            type: 'FeatureCollection',
+            features: []
+        };
+
+        results.forEach(geojson => {
+            if (geojson.features) {
+                combinedGeojson.features.push(...geojson.features);
+            }
+        });
 
         // Calculate min/max density
-        geojson.features.forEach(feature => {
+        combinedGeojson.features.forEach(feature => {
             const density = feature.properties.density || 0;
             if (density > 0) {
                 visibleDensities.add(density);
@@ -106,7 +125,7 @@ async function loadCensusZones() {
 
         updateLegend();
 
-        censusZonesLayer = L.geoJSON(geojson, {
+        censusZonesLayer = L.geoJSON(combinedGeojson, {
             pane: 'censusPane',
             style: function (feature) {
                 const density = feature.properties.density || 0;
@@ -116,21 +135,32 @@ async function loadCensusZones() {
             },
             onEachFeature: function (feature, layer) {
                 const props = feature.properties;
-                layer.bindPopup(`
-                    <strong>${props.district}</strong><br>
-                    ${props.neighborhood}<br>
-                    Población: <strong>${props.population.toLocaleString()}</strong><br>
-                    Área: ${(props.area_km2 || 0).toFixed(2)} km²<br>
-                    Densidad: <strong>${(props.density || 0).toLocaleString()} hab/km²</strong>
-                `);
+                const isLH = props.join_key && !isNaN(props.join_key) && parseInt(props.join_key) < 1000; // Simplified check or could use a flag in properties
+
+                // Requirement 5: Remove "Barris" for LH, Bold neighborhood
+                let popupContent = "";
+                if (props.district && props.district !== "Barris") {
+                    popupContent += `<strong>${props.district}</strong><br>`;
+                }
+
+                const neighborhoodLabel = (props.district === "Barris" || isLH) ? `<strong>${props.neighborhood}</strong>` : props.neighborhood;
+                popupContent += `${neighborhoodLabel}<br>`;
+
+                popupContent += `Población: <strong>${props.population.toLocaleString()}</strong><br>
+                                Área: ${(props.area_km2 || 0).toFixed(2)} km²<br>
+                                Densidad: <strong>${(props.density || 0).toLocaleString()} hab/km²</strong>`;
+
+                layer.bindPopup(popupContent);
             }
         }).addTo(map);
 
-        // Zoom to city
+        // Zoom to fit all zones
         map.fitBounds(censusZonesLayer.getBounds());
     } catch (error) {
         console.error('Error loading census zones:', error);
         alert('Error al cargar las zonas censales');
+    } finally {
+        if (mapSpinner) mapSpinner.classList.remove('show');
     }
 }
 
@@ -138,7 +168,7 @@ async function loadCensusZones() {
 document.getElementById('upload-form').addEventListener('submit', async function (e) {
     e.preventDefault();
     const formData = new FormData(this);
-    formData.append('city', currentCity);
+    // currentCity is not used anymore as we aggregate everything in the backend if needed
 
     const loading = document.getElementById('loading');
     const statsPanel = document.getElementById('stats-panel');
@@ -211,12 +241,6 @@ document.getElementById('upload-form').addEventListener('submit', async function
         loading.classList.remove('show');
         calculateBtn.disabled = false;
     }
-});
-
-// City Toggle Listener
-document.getElementById('city-toggle').addEventListener('change', function () {
-    currentCity = this.checked ? 'l_hospitalet' : 'barcelona';
-    loadCensusZones();
 });
 
 // Reset view button

@@ -103,12 +103,8 @@ def get_census_zones():
 
 @app.route('/api/calculate-population', methods=['POST'])
 def calculate_population():
-    """Calculate population for uploaded KML polygon"""
+    """Calculate population for uploaded KML polygon, aggregating all cities"""
     try:
-        city = request.form.get('city', 'barcelona')
-        if city not in CITY_DATA:
-            return jsonify({'error': f'City {city} not found'}), 404
-            
         if 'kml_file' not in request.files:
             return jsonify({'error': 'No KML file provided'}), 400
         
@@ -116,21 +112,29 @@ def calculate_population():
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
         
-        data = CITY_DATA[city]
-        n_points = int(request.form.get('n_points', 1000))
-        
-        # Read KML content
+        # Read KML content once
         kml_content = file.read().decode('utf-8')
         kml_poly = parse_kml_polygon(kml_content)
         
-        # Calculate population
-        total_pop = calcular_poblacion_interseccion(
-            kml_poly, data['pop_df'], data['geo_df'], 
-            join_key_geo=data['config']
-        )
+        total_pop_sum = 0
+        all_intersecting_zones = []
         
-        # Get statistics
-        stats = get_zone_statistics(kml_poly, data['geo_df'], data['pop_df'], city_config=data['config'])
+        # Aggregate data from all loaded cities
+        for city_name, data in CITY_DATA.items():
+            try:
+                # Calculate population for this city
+                total_pop = calcular_poblacion_interseccion(
+                    kml_poly, data['pop_df'], data['geo_df'], 
+                    join_key_geo=data['config']
+                )
+                total_pop_sum += total_pop
+                
+                # Get statistics for this city
+                stats = get_zone_statistics(kml_poly, data['geo_df'], data['pop_df'], city_config=data['config'])
+                all_intersecting_zones.extend(stats.get('intersecting_zones', []))
+            except Exception as e:
+                print(f"Error processing city {city_name} in calculation: {e}")
+                continue
         
         # Convert polygon to GeoJSON for map display
         coords = [[float(coord[0]), float(coord[1])] for coord in kml_poly]
@@ -146,8 +150,12 @@ def calculate_population():
         }
         
         return jsonify({
-            'population': total_pop,
-            'statistics': stats,
+            'population': round(total_pop_sum),
+            'statistics': {
+                'total_population': round(total_pop_sum),
+                'intersecting_zones': all_intersecting_zones,
+                'num_zones': len(all_intersecting_zones)
+            },
             'geojson': geojson
         })
     
