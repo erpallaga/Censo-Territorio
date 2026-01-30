@@ -24,16 +24,33 @@ let densityMin = Infinity;
 let currentCity = 'barcelona'; // Defaults to barcelona for some calculations if needed, but we aggregate now
 const cities = ['barcelona', 'l_hospitalet'];
 let visibleDensities = new Set();
+let densityThresholds = []; // Store quantile thresholds
 
-// Function to get color based on density ratio (7-step gradation)
-function getDensityColor(ratio) {
-    if (ratio < 0.14) return '#006837'; // Dark green
-    if (ratio < 0.28) return '#238b45'; // Medium green
-    if (ratio < 0.43) return '#74c476'; // Light green
-    if (ratio < 0.57) return '#fed976'; // Yellow
-    if (ratio < 0.71) return '#fd8d3c'; // Orange
-    if (ratio < 0.86) return '#e31a1c'; // Red-orange
+// Function to get color based on density and calculated thresholds
+function getDensityColor(density) {
+    if (densityThresholds.length === 0) return '#006837';
+    if (density < densityThresholds[0]) return '#006837'; // Dark green
+    if (density < densityThresholds[1]) return '#238b45'; // Medium green
+    if (density < densityThresholds[2]) return '#74c476'; // Light green
+    if (density < densityThresholds[3]) return '#fed976'; // Yellow
+    if (density < densityThresholds[4]) return '#fd8d3c'; // Orange
+    if (density < densityThresholds[5]) return '#e31a1c'; // Red-orange
     return '#99000d'; // Dark red
+}
+
+// Function to calculate quantiles
+function getQuantiles(data, numBuckets) {
+    if (data.length === 0) return [];
+    const sorted = [...data].sort((a, b) => a - b);
+    const quantiles = [];
+    for (let i = 1; i < numBuckets; i++) {
+        const index = (i / numBuckets) * (sorted.length - 1);
+        const low = Math.floor(index);
+        const high = Math.ceil(index);
+        const weight = index - low;
+        quantiles.push(sorted[low] * (1 - weight) + sorted[high] * weight);
+    }
+    return quantiles;
 }
 
 // Function to update dynamic legend
@@ -44,15 +61,15 @@ function updateLegend() {
         return;
     }
 
-    const uniqueDensities = Array.from(visibleDensities).sort((a, b) => a - b);
-    const numUnique = uniqueDensities.length;
-    let steps = Math.min(numUnique, 7);
-    if (steps === 0) steps = 1;
+    if (densityMax === 0 || densityMin === Infinity || densityThresholds.length === 0) {
+        legendContent.innerHTML = '<p style="font-size: 0.9em; color: #666; font-style: italic;">Cargando...</p>';
+        return;
+    }
 
     let legendHTML = '<div style="margin-bottom: 8px;">';
 
-    if (densityMax === densityMin || steps === 1) {
-        const color = getDensityColor(0.5);
+    if (densityMax === densityMin) {
+        const color = getDensityColor(densityMax);
         legendHTML += `
             <div class="legend-item" style="margin-bottom: 6px;">
                 <div class="legend-color" style="background: ${color};"></div>
@@ -60,15 +77,15 @@ function updateLegend() {
             </div>
         `;
     } else {
-        const stepSize = (densityMax - densityMin) / steps;
-        for (let i = 0; i < steps; i++) {
-            const ratio = i / (steps - 1);
-            const color = getDensityColor(ratio);
-            const minD = densityMin + (stepSize * i);
-            const maxD = i === steps - 1 ? densityMax : densityMin + (stepSize * (i + 1));
+        const colors = ['#006837', '#238b45', '#74c476', '#fed976', '#fd8d3c', '#e31a1c', '#99000d'];
+        const fullThresholds = [densityMin, ...densityThresholds, densityMax];
+
+        for (let i = 0; i < colors.length; i++) {
+            const minD = fullThresholds[i];
+            const maxD = fullThresholds[i + 1];
             legendHTML += `
                 <div class="legend-item" style="margin-bottom: 6px;">
-                    <div class="legend-color" style="background: ${color};"></div>
+                    <div class="legend-color" style="background: ${colors[i]};"></div>
                     <span style="font-size: 0.85em;">${Math.round(minD).toLocaleString()} - ${Math.round(maxD).toLocaleString()} hab/km²</span>
                 </div>
             `;
@@ -123,14 +140,17 @@ async function loadCensusZones() {
             }
         });
 
+        // Compute Quantiles
+        const densityArray = Array.from(visibleDensities);
+        densityThresholds = getQuantiles(densityArray, 7);
+
         updateLegend();
 
         censusZonesLayer = L.geoJSON(combinedGeojson, {
             pane: 'censusPane',
             style: function (feature) {
                 const density = feature.properties.density || 0;
-                const ratio = densityMax > densityMin ? (density - densityMin) / (densityMax - densityMin) : 0.5;
-                const color = getDensityColor(ratio);
+                const color = getDensityColor(density);
                 return { color: '#333', weight: 1, fillColor: color, fillOpacity: 0.6 };
             },
             onEachFeature: function (feature, layer) {
@@ -219,13 +239,16 @@ document.getElementById('upload-form').addEventListener('submit', async function
                     if (d > newMax) newMax = d;
                     if (d < newMin) newMin = d;
                 });
-                if (newMax > 0) { densityMax = newMax; densityMin = newMin; }
+                if (newMax > 0) {
+                    densityMax = newMax;
+                    densityMin = newMin;
+                    densityThresholds = getQuantiles(Array.from(visibleDensities), 7);
+                }
 
                 censusZonesLayer.eachLayer(layer => {
                     if (intersectingKeys.has(layer.feature.properties.join_key)) {
                         const density = layer.feature.properties.density || 0;
-                        const ratio = densityMax > densityMin ? (density - densityMin) / (densityMax - densityMin) : 0.5;
-                        layer.setStyle({ fillColor: getDensityColor(ratio) });
+                        layer.setStyle({ fillColor: getDensityColor(density) });
                     }
                 });
 
@@ -248,6 +271,7 @@ document.getElementById('reset-view-btn').addEventListener('click', () => {
     if (censusZonesLayer) {
         // Reset full density range
         densityMax = 0; densityMin = Infinity;
+        visibleDensities.clear();
         censusZonesLayer.eachLayer(l => {
             const d = l.feature.properties.density || 0;
             if (d > 0) {
@@ -256,10 +280,12 @@ document.getElementById('reset-view-btn').addEventListener('click', () => {
                 if (d < densityMin) densityMin = d;
             }
         });
+
+        densityThresholds = getQuantiles(Array.from(visibleDensities), 7);
+
         censusZonesLayer.eachLayer(layer => {
             const d = layer.feature.properties.density || 0;
-            const r = densityMax > densityMin ? (d - densityMin) / (densityMax - densityMin) : 0.5;
-            layer.setStyle({ fillColor: getDensityColor(r), fillOpacity: 0.6, opacity: 1 });
+            layer.setStyle({ fillColor: getDensityColor(d), fillOpacity: 0.6, opacity: 1 });
         });
         updateLegend();
         map.fitBounds(censusZonesLayer.getBounds());
