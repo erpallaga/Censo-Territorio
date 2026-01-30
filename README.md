@@ -1,26 +1,29 @@
-# Censo Territorio - Barcelona
+# Censo Territorio - Barcelona & L'Hospitalet
 
-Esta aplicación web permite visualizar datos demográficos detallados de Barcelona y realizar cálculos de población en áreas personalizadas definidas mediante archivos KML.
+Esta aplicación web permite visualizar datos demográficos detallados de Barcelona y L'Hospitalet de Llobregat, permitiendo realizar cálculos de población en áreas personalizadas definidas mediante archivos KML.
 
-## 📊 Fuentes de Datos (Open Data Barcelona)
+## 📊 Fuentes de Datos (Open Data)
 
-El proyecto utiliza datos oficiales del Ayuntamiento de Barcelona:
+El proyecto utiliza datos oficiales de los ayuntamientos:
 
-1.  **Población (Padrón)**: [Habitantes por Sección Censal](https://opendata-ajuntament.barcelona.cat/data/es/dataset/pad_mdbas) (Datos 2025).
-2.  **Cartografía (Secciones Censales)**: [Geometrías de Distritos y Barrios](https://opendata-ajuntament.barcelona.cat/data/es/dataset/20170706-districtes-barris) (Secciones Censales en formato WGS84).
+1.  **Barcelona**:
+    - [Habitantes por Sección Censal](https://opendata-ajuntament.barcelona.cat/data/es/dataset/pad_mdbas) (Padrón 2025).
+    - [Cartografía de Secciones Censales](https://opendata-ajuntament.barcelona.cat/data/es/dataset/20170706-districtes-barris) (WGS84).
+2.  **L'Hospitalet**:
+    - [Padrón Municipal por Barrios](https://opendata-l-h.digital/dataset/habitants-per-barris-i-edades-any-2025) (Datos 2025).
+    - [Divisiones Territoriales](https://opendata-l-h.digital/dataset/territori-divisions-territorials) (Cartografía de Barrios).
 
 ## ✨ Características Principales
 
--   **Mapa Interactivo**: Visualización de las 1.068 secciones censales de Barcelona.
--   **Cálculo por KML**: Sube un polígono en formato `.kml` y obtén la población estimada dentro de esa geometría exacta.
--   **Análisis Dinámico de Monte Carlo**: Ajuste automático de la precisión del cálculo según el número de zonas afectadas.
--   **Leyenda Inteligente**: Escala de colores (densidad de población) que se adapta dinámicamente según los datos visibles.
--   **Estadísticas de Zona**: Desglose de población, densidad por km², distrito y barrio.
--   **Interfaz Moderna**: Micro-animaciones, spinners de carga y diseño oscuro/profesional.
+-   **Integración Multi-Ciudad**: Visualización y cálculo simultáneo para Barcelona y L'Hospitalet.
+-   **Cálculo Agregado por KML**: Sube un polígono `.kml` y obtén la población total estimada, incluso si el área abarca ambas ciudades.
+-   **Escalado por Cuantiles**: Visualización inteligente de la densidad de población mediante percentiles, asegurando una distribución de colores equilibrada que resalta las variaciones locales sin verse afectada por valores extremos (outliers).
+-   **Análisis de Monte Carlo**: Estimación precisa de población en intersecciones mediante muestreo aleatorio dinámico.
+-   **Interfaz Moderna**: Spinner de carga integrado en el mapa, diseño profesional y visualización de datos detallada en popups.
 
 ## 🛠️ Instalación
 
-1.  **Clonar el repositorio y entrar en el directorio**:
+1.  **Clonar el repositorio**:
     ```bash
     git clone https://github.com/erpallaga/Censo-Territorio.git
     cd Censo-Territorio
@@ -31,10 +34,12 @@ El proyecto utiliza datos oficiales del Ayuntamiento de Barcelona:
     pip install -r requirements.txt
     ```
 
-3.  **Archivos de datos necesarios**:
-    Asegúrate de tener los siguientes archivos CSV en la raíz (descargables de las fuentes mencionadas):
-    - `2025_pad_mdbas.csv`
-    - `BarcelonaCiutat_SeccionsCensals.csv`
+3.  **Archivos de datos**:
+    El proyecto requiere que los archivos CSV estén organizados de la siguiente manera:
+    - `/2025_pad_mdbas.csv` (BCN Padrón)
+    - `/BarcelonaCiutat_SeccionsCensals.csv` (BCN Geometría)
+    - `/L'Hospitalet/06ff0a2d-f6f8-4bf5-9ac1-ed09fda42a8b.csv` (LH Padrón)
+    - `/L'Hospitalet/TERRITORI_DIVISIONS_BAR.csv` (LH Geometría)
 
 ## 🚀 Uso
 
@@ -44,27 +49,19 @@ El proyecto utiliza datos oficiales del Ayuntamiento de Barcelona:
     ```
 
 2.  **Acceder a la aplicación**:
-    Abre `http://localhost:5000` en tu navegador.
+    Abre `http://localhost:5000` en tu navegador. Ambas ciudades se cargarán automáticamente.
 
 3.  **Procesar una zona**:
-    - Haz clic en el botón de subida.
-    - Selecciona un archivo `.kml` (por ejemplo, generado en Google Earth o My Maps).
-    - La aplicación calculará automáticamente la población e iluminará las secciones censales intersectadas.
+    - Sube un archivo `.kml`.
+    - La aplicación sumará la población de todas las zonas (de ambas ciudades) intersectadas por el polígono.
 
 ## 🧠 Detalles Técnicos
 
-### Algoritmo de Localización (Point-In-Polygon)
-Se utiliza el algoritmo de **Ray Casting** para determinar qué coordenadas geográficas se encuentran dentro de los complejos límites de las secciones censales.
+### Color por Cuantiles
+Para evitar que las zonas industriales o parques (densidad baja) y los bloques densos (densidad alta) oculten la variabilidad del resto del mapa, implementamos una escala de cuantiles. Esto divide los datos en 7 grupos con igual número de secciones, permitiendo que cada color de la leyenda represente un segmento real de la población local.
 
-### Estimación de Población (Monte Carlo)
-Cuando un KML intersecta parcialmente múltiples secciones, la población se calcula mediante una simulación de Monte Carlo:
-1.  Se generan puntos aleatorios dentro del área de interés.
-2.  Se calcula el ratio de puntos que caen dentro de cada sección censal frente al total del polígono KML.
-3.  Se aplica este ratio a la población total de la sección para una estimación precisa.
-4.  **Muestreo Dinámico**: El sistema aumenta automáticamente el número de puntos (hasta 10,000) en zonas pequeñas o específicas para maximizar la precisión, y lo reduce en áreas muy grandes para mantener el rendimiento.
-
-### Geometría Esférica
-Las áreas en km² se calculan utilizando aproximaciones esféricas que consideran la curvatura terrestre, garantizando que los cálculos de densidad sean correctos en latitudes de Barcelona.
+### Estimación de Intersección
+Se utiliza una simulación de Monte Carlo con muestreo dinámico (hasta 10,000 puntos) para estimar qué porcentaje de la población de cada zona censal recae dentro del polígono KML subido por el usuario.
 
 ## 📁 Estructura del Proyecto
 
@@ -83,4 +80,4 @@ Las áreas en km² se calculan utilizando aproximaciones esféricas que consider
 
 ## ⚖️ Licencia
 
-Proyecto desarrollado con fines educativos y de análisis territorial. Datos propiedad del Ayuntamiento de Barcelona bajo licencia Open Data.
+Proyecto desarrollado con fines educativos y de análisis territorial. Datos propiedad de los Ayuntamientos de Barcelona y L'Hospitalet bajo licencias de datos abiertos.
