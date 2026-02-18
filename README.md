@@ -29,12 +29,18 @@ El proyecto utiliza datos oficiales de los ayuntamientos:
     cd Censo-Territorio
     ```
 
-2.  **Instalar dependencias**:
-    ```bash
+2.  **Preparar el entorno virtual** (si no existe):
+    ```powershell
+    python -m venv venv
+    ```
+
+3.  **Activar el entorno e instalar dependencias**:
+    ```powershell
+    .\venv\Scripts\activate
     pip install -r requirements.txt
     ```
 
-3.  **Archivos de datos**:
+4.  **Archivos de datos**:
     El proyecto requiere que los archivos CSV estén organizados de la siguiente manera:
     - `/2025_pad_mdbas.csv` (BCN Padrón)
     - `/BarcelonaCiutat_SeccionsCensals.csv` (BCN Geometría)
@@ -44,8 +50,9 @@ El proyecto utiliza datos oficiales de los ayuntamientos:
 ## 🚀 Uso
 
 1.  **Ejecutar el servidor**:
-    ```bash
-    python app.py
+    Utilizando el entorno virtual directamente:
+    ```powershell
+    .\venv\Scripts\python.exe app.py
     ```
 
 2.  **Acceder a la aplicación**:
