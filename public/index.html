@@ -24,11 +24,28 @@
             <div class="sidebar">
                 <form id="upload-form">
                     <div class="form-group">
-                        <label for="kml-file">Subir archivo KML:</label>
-                        <input type="file" id="kml-file" name="kml_file" accept=".kml" required>
+                        <label for="kml-file">Seleccionar territorio</label>
+                        <div class="drop-zone" id="drop-zone">
+                            <div class="drop-zone__prompt">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="drop-zone__icon">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                                <span>Arrastra tu KML aquí o haz clic para subir</span>
+                            </div>
+                            <input type="file" id="kml-file" name="kml_file" class="drop-zone__input" accept=".kml"
+                                required>
+                        </div>
+                        <div id="file-info" class="file-info">
+                            <span id="file-name">Ningún archivo seleccionado</span>
+                        </div>
                     </div>
 
-                    <button type="submit" class="btn" id="calculate-btn">Calcular Población</button>
+                    <button type="submit" class="btn" id="calculate-btn" style="display: none;">Calcular
+                        Población</button>
                 </form>
 
                 <div style="margin-top: 15px;">

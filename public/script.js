@@ -252,8 +252,50 @@ document.querySelectorAll('.legend-toggle-btn').forEach(btn => {
     });
 });
 
+// ── Drag and Drop Logic ──────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('kml-file');
+const fileNameDisplay = document.getElementById('file-name');
+const uploadForm = document.getElementById('upload-form');
+
+dropZone.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) {
+        updateThumbnail(fileInput.files[0]);
+        // Auto-submit form
+        uploadForm.dispatchEvent(new Event('submit'));
+    }
+});
+
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('drop-zone--over');
+});
+
+['dragleave', 'dragend'].forEach(type => {
+    dropZone.addEventListener(type, () => {
+        dropZone.classList.remove('drop-zone--over');
+    });
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        updateThumbnail(e.dataTransfer.files[0]);
+        // Auto-submit form
+        uploadForm.dispatchEvent(new Event('submit'));
+    }
+    dropZone.classList.remove('drop-zone--over');
+});
+
+function updateThumbnail(file) {
+    fileNameDisplay.textContent = file.name;
+}
+
 // ── Handle form submission ───────────────────────────────────────
-document.getElementById('upload-form').addEventListener('submit', async function (e) {
+uploadForm.addEventListener('submit', async function (e) {
     e.preventDefault();
     const formData = new FormData(this);
 
@@ -264,6 +306,8 @@ document.getElementById('upload-form').addEventListener('submit', async function
     loading.classList.add('show');
     statsPanel.classList.remove('show');
     calculateBtn.disabled = true;
+    dropZone.style.opacity = '0.5';
+    dropZone.style.pointerEvents = 'none';
 
     try {
         const response = await fetch('/api/calculate-population', {
@@ -280,12 +324,13 @@ document.getElementById('upload-form').addEventListener('submit', async function
             uploadedZoneLayer = L.geoJSON(data.geojson, {
                 pane: 'kmlPane',
                 style: {
-                    color: '#2D3436',
-                    weight: 6,
+                    color: '#00d2ff', // Vibrant Cyan
+                    weight: 4,
                     opacity: 1,
-                    dashArray: '10, 10',
-                    fillColor: '#2D3436',
-                    fillOpacity: 0.1
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                    fillColor: '#00d2ff',
+                    fillOpacity: 0.05
                 }
             }).addTo(map);
 
@@ -329,6 +374,8 @@ document.getElementById('upload-form').addEventListener('submit', async function
     } finally {
         loading.classList.remove('show');
         calculateBtn.disabled = false;
+        dropZone.style.opacity = '1';
+        dropZone.style.pointerEvents = 'all';
     }
 });
 

@@ -71,18 +71,89 @@ body {
 
 .form-group label {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
     color: #333;
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 1.1em;
+    letter-spacing: -0.02em;
 }
 
-.form-group input[type="file"] {
+/* Drop Zone Styles */
+.drop-zone {
     width: 100%;
-    padding: 10px;
-    border: 2px dashed #667eea;
-    border-radius: 8px;
-    background: #f8f9fa;
+    height: 180px;
+    padding: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 0.95em;
+    font-weight: 500;
     cursor: pointer;
+    color: #555;
+    border: 3px dashed #667eea;
+    border-radius: 12px;
+    background: #f8faff;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.drop-zone:hover {
+    background: #f0f4ff;
+    border-color: #764ba2;
+    transform: scale(1.02);
+}
+
+.drop-zone--over {
+    border-style: solid;
+    background: #eef2ff;
+    border-color: #764ba2;
+    box-shadow: 0 0 20px rgba(118, 75, 162, 0.2);
+}
+
+.drop-zone__input {
+    display: none;
+}
+
+.drop-zone__prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.drop-zone__icon {
+    color: #667eea;
+    transition: transform 0.3s;
+}
+
+.drop-zone--over .drop-zone__icon {
+    transform: translateY(-5px);
+}
+
+.file-info {
+    margin-top: 15px;
+    padding: 12px 15px;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #333;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.file-info::before {
+    content: "📄";
+}
+
+#file-name {
+    font-weight: 600;
+    word-break: break-all;
+    flex: 1;
 }
 
 .form-group input[type="number"] {
