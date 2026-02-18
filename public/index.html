@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Censo Territorio - Visualización de Datos Censales</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗺️ Censo Territorio</h1>
+            <p>Estimación de habitantes por territorio. Datos censales de Barcelona y L'Hospitalet</p>
+        </div>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <form id="upload-form">
+                    <div class="form-group">
+                        <label for="kml-file">Subir archivo KML:</label>
+                        <input type="file" id="kml-file" name="kml_file" accept=".kml" required>
+                    </div>
+
+                    <button type="submit" class="btn" id="calculate-btn">Calcular Población</button>
+                </form>
+
+                <div style="margin-top: 15px;">
+                    <button type="button" class="btn" id="reset-view-btn"
+                        style="background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);">
+                        Mostrar Todas las Zonas
+                    </button>
+                </div>
+
+                <div class="loading" id="loading">
+                    <div class="newtons-cradle">
+                        <div class="newtons-cradle__dot"></div>
+                        <div class="newtons-cradle__dot"></div>
+                        <div class="newtons-cradle__dot"></div>
+                        <div class="newtons-cradle__dot"></div>
+                    </div>
+                    <p style="color: #666; font-weight: 600; font-size: 0.9em;">Calculando población...</p>
+                </div>
+
+                <div class="stats-panel" id="stats-panel">
+                    <h3>📊 Resultados</h3>
+                    <div class="stat-item">
+                        <div class="stat-label">Población Total</div>
+                        <div class="stat-value" id="total-population">-</div>
+                    </div>
+                </div>
+
+                <div class="info-panel">
+                    <div class="info-toggle">
+                        <span>ℹ️ Instrucciones</span>
+                    </div>
+                    <div class="info-content">
+                        <ul style="padding-left: 20px; color: #666; font-size: 0.9em;">
+                            <li style="margin-bottom: 8px;">Sube un archivo KML con tu zona de interés</li>
+                            <li style="margin-bottom: 8px;">El mapa muestra todas las zonas censales</li>
+                            <li style="margin-bottom: 8px;">Haz clic en una zona para ver detalles</li>
+                            <li>Los colores indican la densidad (hab/km²)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="legend" id="density-legend">
+                    <div class="legend-toggle">
+                        <button class="legend-toggle-btn active" data-mode="density">Densidad</button>
+                        <button class="legend-toggle-btn" data-mode="population">Habitantes</button>
+                    </div>
+                    <div id="legend-content">
+                        <p style="font-size: 0.9em; color: #666; font-style: italic;">Cargando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="map-container">
+                <div id="map"></div>
+                <div id="map-spinner" class="map-overlay-spinner">
+                    <div class="spinner-content">
+                        <div class="loading-ring"></div>
+                        <p>Cargando datos...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Custom JS -->
+    <script src="/script.js"></script>
+</body>
+
+</html>
