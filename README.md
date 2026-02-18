@@ -17,6 +17,7 @@ El proyecto utiliza datos oficiales de los ayuntamientos:
 
 -   **Integración Multi-Ciudad**: Visualización y cálculo simultáneo para Barcelona y L'Hospitalet.
 -   **Cálculo Agregado por KML**: Sube un polígono `.kml` y obtén la población total estimada, incluso si el área abarca ambas ciudades.
+-   **Visualización KML Optimizada**: El área seleccionada se resalta con un estilo "Carbon Black" (línea gruesa punteada de color neutro) optimizado para destacar sobre cualquier degradado de color y mapa base.
 -   **Escalado por Cuantiles**: Visualización inteligente de la densidad de población mediante percentiles, asegurando una distribución de colores equilibrada que resalta las variaciones locales sin verse afectada por valores extremos (outliers).
 -   **Análisis de Monte Carlo**: Estimación precisa de población en intersecciones mediante muestreo aleatorio dinámico.
 -   **Interfaz Moderna**: Spinner de carga integrado en el mapa, diseño profesional y visualización de datos detallada en popups.
@@ -69,6 +70,9 @@ Para evitar que las zonas industriales o parques (densidad baja) y los bloques d
 
 ### Estimación de Intersección
 Se utiliza una simulación de Monte Carlo con muestreo dinámico (hasta 10,000 puntos) para estimar qué porcentaje de la población de cada zona censal recae dentro del polígono KML subido por el usuario.
+
+### Gestión de Capas (Z-Index)
+Para garantizar la visibilidad de las selecciones del usuario, se implementaron panes personalizados en Leaflet. El polígono KML se renderiza en un pane superior (z-index 650), manteniéndose siempre por encima de las zonas censales y el mapa base, evitando que los colores de densidad oculten los límites del área de estudio.
 
 ## 📁 Estructura del Proyecto
 

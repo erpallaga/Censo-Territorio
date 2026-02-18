@@ -389,6 +389,36 @@ input:checked+.slider:before {
     color: #333;
 }
 
+.legend-toggle {
+    display: flex;
+    gap: 0;
+    margin-bottom: 12px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid #667eea;
+}
+
+.legend-toggle-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    background: #f0f2ff;
+    color: #667eea;
+    font-size: 0.85em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.25s, color 0.25s;
+}
+
+.legend-toggle-btn:hover {
+    background: #e0e4ff;
+}
+
+.legend-toggle-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
 .legend-item {
     display: flex;
     align-items: center;
