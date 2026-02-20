@@ -13,7 +13,7 @@ El proyecto utiliza datos oficiales de los ayuntamientos:
     - [Padrón Municipal por Barrios](https://opendata-l-h.digital/dataset/habitants-per-barris-i-edades-any-2025) (Datos 2025).
     - [Divisiones Territoriales](https://opendata-l-h.digital/dataset/territori-divisions-territorials) (Cartografía de Barrios).
 
-## ✨ Características Principales
+## ✨ Características principales
 
 -   **Integración Multi-Ciudad**: Visualización y cálculo simultáneo para Barcelona y L'Hospitalet.
 -   **Cálculo Agregado por KML**: Sube un polígono `.kml` y obtén la población total estimada, incluso si el área abarca ambas ciudades.
