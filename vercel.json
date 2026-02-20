@@ -5,7 +5,8 @@
       "src": "api/**/*.py",
       "use": "@vercel/python",
       "config": {
-        "includeFiles": "data/**"
+        "includeFiles": "data/**",
+        "maxLambdaDuration": 60
       }
     },
     {
@@ -30,10 +31,5 @@
       "src": "/(.*)",
       "dest": "/public/index.html"
     }
-  ],
-  "functions": {
-    "api/**/*.py": {
-      "maxDuration": 60
-    }
-  }
+  ]
 }
