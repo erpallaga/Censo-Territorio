@@ -1,5 +1,19 @@
 {
   "version": 2,
+  "builds": [
+    {
+      "src": "api/**/*.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaDuration": 60,
+        "includeFiles": "data/**"
+      }
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
+    }
+  ],
   "routes": [
     {
       "src": "/api/(.*)",
@@ -17,11 +31,5 @@
       "src": "/(.*)",
       "dest": "/public/index.html"
     }
-  ],
-  "functions": {
-    "api/**/*.py": {
-      "maxDuration": 60,
-      "includeFiles": "data/**"
-    }
-  }
+  ]
 }
