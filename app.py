@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
+import json
 import pandas as pd
 import numpy as np
 import traceback
@@ -95,7 +96,12 @@ def get_census_zones():
         data = CITY_DATA[city]
         sample_size = request.args.get('sample', type=int)
         geojson = get_census_zones_geojson(data['geo_df'], data['pop_df'], sample_size=sample_size, city_config=data['config'])
-        return jsonify(geojson)
+        
+        # Use compact JSON to minimize payload size for Vercel
+        return Response(
+            json.dumps(geojson, separators=(',', ':')),
+            mimetype='application/json'
+        )
     except Exception as e:
         error_trace = traceback.format_exc()
         print(f"Error in get_census_zones: {error_trace}")
@@ -137,7 +143,7 @@ def calculate_population():
                 continue
         
         # Convert polygon to GeoJSON for map display
-        coords = [[float(coord[0]), float(coord[1])] for coord in kml_poly]
+        coords = [[round(float(coord[0]), 5), round(float(coord[1]), 5)] for coord in kml_poly]
         geojson = {
             'type': 'Feature',
             'geometry': {
@@ -196,7 +202,7 @@ def get_zone_detail(city, key):
         s_row = secc_row.iloc[0]
         wkt = s_row[config['col_geometry']]
         poly = parse_wkt_polygon(wkt)
-        coords = [[float(coord[0]), float(coord[1])] for coord in poly]
+        coords = [[round(float(coord[0]), 5), round(float(coord[1]), 5)] for coord in poly]
         
         return jsonify({
             'population': int(p_row['Valor']),
