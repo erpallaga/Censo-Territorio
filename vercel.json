@@ -1,27 +1,35 @@
 {
   "version": 2,
-  "functions": {
-    "api/**/*.py": {
-      "maxDuration": 60,
-      "includeFiles": "data/**"
+  "builds": [
+    {
+      "src": "api/**/*.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": "data/**",
+        "maxDuration": 60
+      }
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
     }
-  },
-  "rewrites": [
+  ],
+  "routes": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
     },
     {
-      "source": "/style.css",
-      "destination": "/public/style.css"
+      "src": "/style.css",
+      "dest": "/public/style.css"
     },
     {
-      "source": "/script.js",
-      "destination": "/public/script.js"
+      "src": "/script.js",
+      "dest": "/public/script.js"
     },
     {
-      "source": "/(.*)",
-      "destination": "/public/index.html"
+      "src": "/(.*)",
+      "dest": "/public/index.html"
     }
   ]
 }
