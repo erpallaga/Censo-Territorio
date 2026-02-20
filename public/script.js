@@ -181,7 +181,21 @@ async function loadCensusZones() {
 
         // Load census zones for all cities in parallel
         const fetchPromises = cities.map(city =>
-            fetch(`/api/census-zones?city=${city}`).then(r => r.json())
+            fetch(`/api/census-zones?city=${city}`).then(async r => {
+                if (!r.ok) {
+                    const text = await r.text();
+                    console.error(`Error loading ${city}:`, text);
+                    throw new Error(`Error ${r.status}: ${r.statusText}`);
+                }
+                const contentType = r.headers.get("content-type");
+                if (contentType && contentType.includes("application/json")) {
+                    return r.json();
+                } else {
+                    const text = await r.text();
+                    console.error(`Non-JSON response for ${city}:`, text);
+                    throw new Error(`Server returned non-JSON for ${city}`);
+                }
+            })
         );
 
         const results = await Promise.all(fetchPromises);
