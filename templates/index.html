@@ -24,11 +24,19 @@
             <div class="sidebar">
                 <form id="upload-form">
                     <div class="form-group">
-                        <label for="kml-file">Subir archivo KML:</label>
-                        <input type="file" id="kml-file" name="kml_file" accept=".kml" required>
+                        <label>Subir archivo KML:</label>
+                        <div class="dropzone" id="dropzone">
+                            <input type="file" id="kml-file" name="kml_file" accept=".kml" required>
+                            <div class="dropzone-content">
+                                <span class="dropzone-icon">📁</span>
+                                <span class="dropzone-text" id="dropzone-text">Arrastra tu archivo KML aquí o haz clic
+                                    para buscar</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <button type="submit" class="btn" id="calculate-btn">Calcular Población</button>
+                    <button type="submit" class="btn" id="calculate-btn" style="display: none;">Calcular
+                        Población</button>
                 </form>
 
                 <div style="margin-top: 15px;">

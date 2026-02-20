@@ -252,6 +252,120 @@ document.querySelectorAll('.legend-toggle-btn').forEach(btn => {
     });
 });
 
+// ── Dropzone & Auto-submit ───────────────────────────────────────
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('kml-file');
+const dropzoneText = document.getElementById('dropzone-text');
+const uploadForm = document.getElementById('upload-form');
+
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropzone.addEventListener(eventName, preventDefaults, false);
+});
+
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+['dragenter', 'dragover'].forEach(eventName => {
+    dropzone.addEventListener(eventName, () => dropzone.classList.add('dragover'), false);
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+    dropzone.addEventListener(eventName, () => dropzone.classList.remove('dragover'), false);
+});
+
+dropzone.addEventListener('drop', (e) => {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    if (files.length > 0) {
+        fileInput.files = files;
+        handleFiles(files[0]);
+    }
+});
+
+fileInput.addEventListener('change', function () {
+    if (this.files.length > 0) {
+        handleFiles(this.files[0]);
+    }
+});
+
+function handleFiles(file) {
+    if (file.name.toLowerCase().endsWith('.kml')) {
+        dropzoneText.textContent = `✅ Archivo cargado: ${file.name}`;
+        dropzoneText.classList.add('has-file');
+
+        // Read file to parse KML and show preview immediately
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const kmlText = e.target.result;
+            try {
+                const geojson = simpleKMLToGeoJSON(kmlText, file.name);
+                if (geojson) {
+                    if (uploadedZoneLayer) map.removeLayer(uploadedZoneLayer);
+                    uploadedZoneLayer = L.geoJSON(geojson, {
+                        pane: 'kmlPane',
+                        style: {
+                            color: '#2D3436',
+                            weight: 6,
+                            opacity: 1,
+                            dashArray: '10, 10',
+                            fillColor: '#2D3436',
+                            fillOpacity: 0.1
+                        }
+                    }).addTo(map);
+                    map.fitBounds(uploadedZoneLayer.getBounds(), { padding: [50, 50] });
+                }
+            } catch (err) {
+                console.error("Error parsing KML for preview", err);
+            }
+
+            // Start calculation after preview is rendered (short delay to ensure UI updates)
+            setTimeout(() => {
+                uploadForm.requestSubmit();
+            }, 50);
+        };
+        reader.readAsText(file);
+    } else {
+        dropzoneText.textContent = '❌ Error: Por favor, sube un archivo KML válido';
+        dropzoneText.classList.remove('has-file');
+        fileInput.value = '';
+    }
+}
+
+function simpleKMLToGeoJSON(kmlText, filename) {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(kmlText, "text/xml");
+
+    let coordsStr = null;
+    const allElements = xmlDoc.getElementsByTagName("*");
+    for (let i = 0; i < allElements.length; i++) {
+        if (allElements[i].localName === "coordinates") {
+            coordsStr = allElements[i].textContent;
+            break;
+        }
+    }
+
+    if (!coordsStr) return null;
+
+    const coordsList = coordsStr.trim().split(/\s+/);
+    const coordinates = coordsList.map(coord => {
+        const parts = coord.split(',');
+        return [parseFloat(parts[0]), parseFloat(parts[1])];
+    }).filter(c => !isNaN(c[0]) && !isNaN(c[1])); // safety filter
+
+    if (coordinates.length < 3) return null;
+
+    return {
+        type: "Feature",
+        properties: { name: filename },
+        geometry: {
+            type: "Polygon",
+            coordinates: [coordinates]
+        }
+    };
+}
+
 // ── Handle form submission ───────────────────────────────────────
 document.getElementById('upload-form').addEventListener('submit', async function (e) {
     e.preventDefault();
