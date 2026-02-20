@@ -314,7 +314,17 @@ uploadForm.addEventListener('submit', async function (e) {
             method: 'POST',
             body: formData
         });
-        const data = await response.json();
+
+        const contentType = response.headers.get("content-type");
+        let data;
+
+        if (contentType && contentType.includes("application/json")) {
+            data = await response.json();
+        } else {
+            const text = await response.text();
+            console.error('Non-JSON response received:', text);
+            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        }
 
         if (response.ok) {
             document.getElementById('total-population').textContent = data.population.toLocaleString();
