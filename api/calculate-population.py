@@ -5,19 +5,8 @@ import os
 import traceback
 import cgi
 
-# Walk up from this file's directory to find the folder that contains _shared/
-_dir = os.path.dirname(os.path.abspath(__file__))
-_candidate = _dir
-for _ in range(4):
-    if os.path.isdir(os.path.join(_candidate, '_shared')):
-        sys.path.insert(0, _candidate)
-        break
-    _parent = os.path.dirname(_candidate)
-    if _parent == _candidate:
-        break
-    _candidate = _parent
-else:
-    sys.path.insert(0, _dir)
+# Add api/ directory to path for _shared imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from _shared.data_loader import get_city_data
 from _shared.census_calculator import (
