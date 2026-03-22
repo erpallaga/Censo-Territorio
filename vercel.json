@@ -2,15 +2,15 @@
   "functions": {
     "api/census-zones.py": {
       "maxDuration": 60,
-      "includeFiles": ["data/**", "api/_shared/**"]
+      "includeFiles": "{data/**,api/_shared/**}"
     },
     "api/calculate-population.py": {
       "maxDuration": 60,
-      "includeFiles": ["data/**", "api/_shared/**"]
+      "includeFiles": "{data/**,api/_shared/**}"
     },
     "api/zone-stats/[city]/[key].py": {
       "maxDuration": 60,
-      "includeFiles": ["data/**", "api/_shared/**"]
+      "includeFiles": "{data/**,api/_shared/**}"
     },
     "api/debug.py": {
       "maxDuration": 10
