@@ -1,22 +1,55 @@
 {
-  "functions": {
-    "api/census-zones.py": {
-      "maxDuration": 60,
-      "includeFiles": "{data/**,api/_shared/**}"
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/census-zones.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaDuration": 60,
+        "includeFiles": ["data/**", "api/_shared/**"]
+      }
     },
-    "api/calculate-population.py": {
-      "maxDuration": 60,
-      "includeFiles": "{data/**,api/_shared/**}"
+    {
+      "src": "api/calculate-population.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaDuration": 60,
+        "includeFiles": ["data/**", "api/_shared/**"]
+      }
     },
-    "api/zone-stats/[city]/[key].py": {
-      "maxDuration": 60,
-      "includeFiles": "{data/**,api/_shared/**}"
+    {
+      "src": "api/zone-stats/[city]/[key].py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaDuration": 60,
+        "includeFiles": ["data/**", "api/_shared/**"]
+      }
     },
-    "api/debug.py": {
-      "maxDuration": 10
+    {
+      "src": "api/debug.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
     }
-  },
-  "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/style.css",
+      "dest": "/public/style.css"
+    },
+    {
+      "src": "/script.js",
+      "dest": "/public/script.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/index.html"
+    }
   ]
 }
