@@ -4,8 +4,9 @@ import sys
 import os
 import traceback
 
-# Add api/ directory to path for _shared imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add api/ directory to path for _shared imports (go up 3 levels: [key]/ -> [city]/ -> zone-stats/ -> api/)
+_api_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, _api_dir)
 
 from _shared.data_loader import get_city_data
 from _shared.census_calculator import parse_wkt_polygon

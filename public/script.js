@@ -181,7 +181,14 @@ async function loadCensusZones() {
 
         // Load census zones for all cities in parallel
         const fetchPromises = cities.map(city =>
-            fetch(`/api/census-zones?city=${city}`).then(r => r.json())
+            fetch(`/api/census-zones?city=${city}`).then(r => {
+                if (!r.ok) {
+                    return r.text().then(t => {
+                        throw new Error(`${city}: HTTP ${r.status} – ${t.substring(0, 300)}`);
+                    });
+                }
+                return r.json();
+            })
         );
 
         const results = await Promise.all(fetchPromises);
@@ -232,7 +239,7 @@ async function loadCensusZones() {
         map.fitBounds(censusZonesLayer.getBounds());
     } catch (error) {
         console.error('Error loading census zones:', error);
-        alert('Error al cargar las zonas censales');
+        alert('Error al cargar las zonas censales:\n' + error.message);
     } finally {
         if (mapSpinner) mapSpinner.classList.remove('show');
     }
@@ -270,6 +277,10 @@ document.getElementById('upload-form').addEventListener('submit', async function
             method: 'POST',
             body: formData
         });
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`HTTP ${response.status} – ${errText.substring(0, 300)}`);
+        }
         const data = await response.json();
 
         if (response.ok) {
@@ -325,7 +336,7 @@ document.getElementById('upload-form').addEventListener('submit', async function
         } else alert('Error: ' + data.error);
     } catch (error) {
         console.error('Error:', error);
-        alert('Error al procesar el archivo KML');
+        alert('Error al procesar el archivo KML:\n' + error.message);
     } finally {
         loading.classList.remove('show');
         calculateBtn.disabled = false;
