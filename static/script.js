@@ -20,7 +20,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 let censusZonesLayer = null;
 let uploadedZoneLayer = null;
 let currentCity = 'barcelona';
-const cities = ['barcelona', 'l_hospitalet'];
+const cities = ['barcelona', 'hospitalet'];
 
 // Visualization mode: 'density' or 'population'
 let currentMode = 'density';

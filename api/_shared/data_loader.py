@@ -19,9 +19,9 @@ CITY_CONFIGS = {
         'col_section_code': 'codi_seccio_censal',
         'col_geometry': 'geometria_wgs84'
     },
-    'l_hospitalet': {
-        'pop_file': "data/LHospitalet/06ff0a2d-f6f8-4bf5-9ac1-ed09fda42a8b.csv",
-        'geo_file': "data/LHospitalet/TERRITORI_DIVISIONS_BAR.csv",
+    'hospitalet': {
+        'pop_file': "data/hospitalet/06ff0a2d-f6f8-4bf5-9ac1-ed09fda42a8b.csv",
+        'geo_file': "data/hospitalet/TERRITORI_DIVISIONS_BAR.csv",
         'geo_sep': '|',
         'join_key_geo': 'CodiElement',
         'join_key_pop': 'CodiBarri',
@@ -74,7 +74,7 @@ def get_city_data():
                         lambda r: int(f"{int(r['codi_districte']):02d}{int(r['codi_seccio_censal']):03d}"),
                         axis=1
                     )
-            elif city == 'l_hospitalet':
+            elif city == 'hospitalet':
                 # Map Granvia Sud (geometry 16 -> population 13)
                 geo_df.loc[geo_df['CodiElement'] == 16, 'CodiElement'] = 13
                 # LH population needs aggregation for 2025
