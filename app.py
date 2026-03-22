@@ -29,8 +29,8 @@ CITY_CONFIGS = {
         'col_geometry': 'geometria_wgs84'
     },
     'l_hospitalet': {
-        'pop_file': "L'Hospitalet/06ff0a2d-f6f8-4bf5-9ac1-ed09fda42a8b.csv",
-        'geo_file': "L'Hospitalet/TERRITORI_DIVISIONS_BAR.csv",
+        'pop_file': "LHospitalet/06ff0a2d-f6f8-4bf5-9ac1-ed09fda42a8b.csv",
+        'geo_file': "LHospitalet/TERRITORI_DIVISIONS_BAR.csv",
         'geo_sep': '|',
         'join_key_geo': 'CodiElement',
         'join_key_pop': 'CodiBarri',
