@@ -1,11 +1,35 @@
 {
-  "functions": {
-    "api/**/*.py": {
-      "maxDuration": 60,
-      "includeFiles": "{data,api/_shared}/**"
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/**/*.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaDuration": 60,
+        "includeFiles": "{data,api/_shared}/**"
+      }
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
     }
-  },
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/style.css",
+      "dest": "/public/style.css"
+    },
+    {
+      "src": "/script.js",
+      "dest": "/public/script.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/index.html"
+    }
   ]
 }
