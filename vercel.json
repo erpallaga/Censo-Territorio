@@ -2,10 +2,26 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/**/*.py",
+      "src": "api/census-zones.py",
       "use": "@vercel/python",
       "config": {
-        "maxLambdaDuration": 60,
+        "maxDuration": 60,
+        "includeFiles": ["data/**", "api/_shared/**"]
+      }
+    },
+    {
+      "src": "api/calculate-population.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxDuration": 60,
+        "includeFiles": ["data/**", "api/_shared/**"]
+      }
+    },
+    {
+      "src": "api/zone-stats/[city]/[key].py",
+      "use": "@vercel/python",
+      "config": {
+        "maxDuration": 60,
         "includeFiles": ["data/**", "api/_shared/**"]
       }
     },

@@ -35,12 +35,18 @@ CITY_CONFIGS = {
 
 
 def _get_project_root():
-    """Get the project root directory."""
-    # data_loader.py lives at <root>/api/_shared/data_loader.py
-    # Go up 2 levels: _shared/ -> api/ -> root
-    module_dir = os.path.dirname(os.path.abspath(__file__))  # api/_shared/
-    api_dir = os.path.dirname(module_dir)                    # api/
-    return os.path.dirname(api_dir)                          # project root
+    """Get the project root by walking up until we find the 'data/' directory."""
+    module_dir = os.path.dirname(os.path.abspath(__file__))
+    candidate = module_dir
+    for _ in range(4):
+        if os.path.isdir(os.path.join(candidate, 'data')):
+            return candidate
+        parent = os.path.dirname(candidate)
+        if parent == candidate:
+            break
+        candidate = parent
+    # Fallback: 2 levels up from api/_shared/ (original behaviour)
+    return os.path.dirname(os.path.dirname(module_dir))
 
 
 def get_city_data():
