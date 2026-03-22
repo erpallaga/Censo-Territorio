@@ -6,7 +6,7 @@
       "use": "@vercel/python",
       "config": {
         "maxLambdaDuration": 60,
-        "includeFiles": "data/**"
+        "includeFiles": ["data/**", "api/_shared/**"]
       }
     },
     {

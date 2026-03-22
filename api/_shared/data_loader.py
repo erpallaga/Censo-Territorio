@@ -36,12 +36,11 @@ CITY_CONFIGS = {
 
 def _get_project_root():
     """Get the project root directory."""
-    # Check if data directory exists in current working directory (Vercel lambda root)
-    if os.path.exists(os.path.join(os.getcwd(), 'data')):
-        return os.getcwd()
-        
-    # Fallback to local development text relative to this file
-    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    # data_loader.py lives at <root>/api/_shared/data_loader.py
+    # Go up 2 levels: _shared/ -> api/ -> root
+    module_dir = os.path.dirname(os.path.abspath(__file__))  # api/_shared/
+    api_dir = os.path.dirname(module_dir)                    # api/
+    return os.path.dirname(api_dir)                          # project root
 
 
 def get_city_data():
