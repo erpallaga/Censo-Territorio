@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- Map pin shape -->
-  <circle cx="50" cy="38" r="28" fill="#2563eb"/>
-  <circle cx="50" cy="38" r="13" fill="white"/>
-  <polygon points="34,60 66,60 50,92" fill="#2563eb"/>
-</svg>
