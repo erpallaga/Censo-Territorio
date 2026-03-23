@@ -179,9 +179,16 @@ async function loadCensusZones() {
         updateLegend();
         if (mapSpinner) mapSpinner.classList.add('show');
 
-        // Load census zones for all cities in parallel
+        // Load census zones for all cities in parallel (pre-generated static files)
         const fetchPromises = cities.map(city =>
-            fetch(`/api/census-zones?city=${city}`).then(r => r.json())
+            fetch(`/geojson/${city}.json`).then(r => {
+                if (!r.ok) {
+                    return r.text().then(t => {
+                        throw new Error(`${city}: HTTP ${r.status} – ${t.substring(0, 300)}`);
+                    });
+                }
+                return r.json();
+            })
         );
 
         const results = await Promise.all(fetchPromises);
@@ -232,7 +239,7 @@ async function loadCensusZones() {
         map.fitBounds(censusZonesLayer.getBounds());
     } catch (error) {
         console.error('Error loading census zones:', error);
-        alert('Error al cargar las zonas censales');
+        alert('Error al cargar las zonas censales:\n' + error.message);
     } finally {
         if (mapSpinner) mapSpinner.classList.remove('show');
     }
@@ -255,7 +262,10 @@ document.querySelectorAll('.legend-toggle-btn').forEach(btn => {
 // ── Handle form submission ───────────────────────────────────────
 document.getElementById('upload-form').addEventListener('submit', async function (e) {
     e.preventDefault();
-    const formData = new FormData(this);
+
+    const fileInput = this.querySelector('input[type="file"]');
+    const file = fileInput && fileInput.files[0];
+    if (!file) { alert('Por favor selecciona un archivo KML'); return; }
 
     const loading = document.getElementById('loading');
     const statsPanel = document.getElementById('stats-panel');
@@ -266,66 +276,65 @@ document.getElementById('upload-form').addEventListener('submit', async function
     calculateBtn.disabled = true;
 
     try {
-        const response = await fetch('/api/calculate-population', {
-            method: 'POST',
-            body: formData
-        });
-        const data = await response.json();
+        const kmlText = await file.text();
+        const kmlCoords = parseKMLPolygon(kmlText);   // from calculator.js
 
-        if (response.ok) {
-            document.getElementById('total-population').textContent = data.population.toLocaleString();
-            statsPanel.classList.add('show');
+        // Collect all loaded census features
+        const allFeatures = [];
+        if (censusZonesLayer) censusZonesLayer.eachLayer(l => allFeatures.push(l.feature));
 
-            if (uploadedZoneLayer) map.removeLayer(uploadedZoneLayer);
-            uploadedZoneLayer = L.geoJSON(data.geojson, {
-                pane: 'kmlPane',
-                style: {
-                    color: '#2D3436',
-                    weight: 6,
-                    opacity: 1,
-                    dashArray: '10, 10',
-                    fillColor: '#2D3436',
-                    fillOpacity: 0.1
-                }
-            }).addTo(map);
+        // Run Monte Carlo in-browser (calculator.js)
+        const data = calculatePopulationFromKML(kmlCoords, allFeatures);
 
-            if (censusZonesLayer) {
-                const intersectingKeys = new Set();
-                if (data.statistics && data.statistics.intersecting_zones) {
-                    data.statistics.intersecting_zones.forEach(zone => intersectingKeys.add(zone.join_key));
-                }
+        document.getElementById('total-population').textContent = data.population.toLocaleString();
+        statsPanel.classList.add('show');
 
-                // Collect visible features for stats recalculation
-                const visibleFeatures = [];
-                censusZonesLayer.eachLayer(layer => {
-                    const key = layer.feature.properties.join_key;
-                    if (intersectingKeys.has(key)) {
-                        visibleFeatures.push(layer.feature);
-                        layer.setStyle({ fillOpacity: 0.6, opacity: 1 });
-                    } else {
-                        layer.setStyle({ fillOpacity: 0, opacity: 0 });
-                    }
-                });
-
-                // Recalculate stats for visible zones only
-                computeStatsFromFeatures(visibleFeatures);
-
-                // Re-color visible zones based on current mode
-                censusZonesLayer.eachLayer(layer => {
-                    if (intersectingKeys.has(layer.feature.properties.join_key)) {
-                        const color = getFeatureColor(layer.feature);
-                        layer.setStyle({ fillColor: color });
-                    }
-                });
-
-                updateLegend();
-                censusZonesLayer.bringToFront();
+        if (uploadedZoneLayer) map.removeLayer(uploadedZoneLayer);
+        uploadedZoneLayer = L.geoJSON(data.geojson, {
+            pane: 'kmlPane',
+            style: {
+                color: '#2D3436',
+                weight: 6,
+                opacity: 1,
+                dashArray: '10, 10',
+                fillColor: '#2D3436',
+                fillOpacity: 0.1
             }
-            map.fitBounds(uploadedZoneLayer.getBounds(), { padding: [50, 50] });
-        } else alert('Error: ' + data.error);
+        }).addTo(map);
+
+        if (censusZonesLayer) {
+            const intersectingKeys = new Set(data.intersecting_zones.map(z => z.join_key));
+
+            // Collect visible features for stats recalculation
+            const visibleFeatures = [];
+            censusZonesLayer.eachLayer(layer => {
+                const key = layer.feature.properties.join_key;
+                if (intersectingKeys.has(key)) {
+                    visibleFeatures.push(layer.feature);
+                    layer.setStyle({ fillOpacity: 0.6, opacity: 1 });
+                } else {
+                    layer.setStyle({ fillOpacity: 0, opacity: 0 });
+                }
+            });
+
+            // Recalculate stats for visible zones only
+            computeStatsFromFeatures(visibleFeatures);
+
+            // Re-color visible zones based on current mode
+            censusZonesLayer.eachLayer(layer => {
+                if (intersectingKeys.has(layer.feature.properties.join_key)) {
+                    const color = getFeatureColor(layer.feature);
+                    layer.setStyle({ fillColor: color });
+                }
+            });
+
+            updateLegend();
+            censusZonesLayer.bringToFront();
+        }
+        map.fitBounds(uploadedZoneLayer.getBounds(), { padding: [50, 50] });
     } catch (error) {
         console.error('Error:', error);
-        alert('Error al procesar el archivo KML');
+        alert('Error al procesar el archivo KML:\n' + error.message);
     } finally {
         loading.classList.remove('show');
         calculateBtn.disabled = false;
