@@ -1,94 +1,125 @@
 # Censo Territorio - Barcelona & L'Hospitalet
 
-Esta aplicación web permite visualizar datos demográficos detallados de Barcelona y L'Hospitalet de Llobregat, permitiendo realizar cálculos de población en áreas personalizadas definidas mediante archivos KML.
+Aplicación web estática para visualizar datos demográficos de Barcelona y L'Hospitalet de Llobregat, con cálculo de población en áreas personalizadas definidas mediante archivos KML.
 
-## 📊 Fuentes de Datos (Open Data)
+## Demo
 
-El proyecto utiliza datos oficiales de los ayuntamientos:
+Desplegado en Vercel como sitio estático puro — sin servidor, sin funciones Lambda.
 
-1.  **Barcelona**:
-    - [Habitantes por Sección Censal](https://opendata-ajuntament.barcelona.cat/data/es/dataset/pad_mdbas) (Padrón 2025).
-    - [Cartografía de Secciones Censales](https://opendata-ajuntament.barcelona.cat/data/es/dataset/20170706-districtes-barris) (WGS84).
-2.  **L'Hospitalet**:
-    - [Padrón Municipal por Barrios](https://opendata-l-h.digital/dataset/habitants-per-barris-i-edades-any-2025) (Datos 2025).
-    - [Divisiones Territoriales](https://opendata-l-h.digital/dataset/territori-divisions-territorials) (Cartografía de Barrios).
+## Fuentes de Datos (Open Data)
 
-## ✨ Características Principales
+1. **Barcelona**:
+   - [Habitantes por Sección Censal](https://opendata-ajuntament.barcelona.cat/data/es/dataset/pad_mdbas) — Padrón 2025
+   - [Cartografía de Secciones Censales](https://opendata-ajuntament.barcelona.cat/data/es/dataset/20170706-districtes-barris) — WGS84
 
--   **Integración Multi-Ciudad**: Visualización y cálculo simultáneo para Barcelona y L'Hospitalet.
--   **Cálculo Agregado por KML**: Sube un polígono `.kml` y obtén la población total estimada, incluso si el área abarca ambas ciudades.
--   **Visualización KML Optimizada**: El área seleccionada se resalta con un estilo "Carbon Black" (línea gruesa punteada de color neutro) optimizado para destacar sobre cualquier degradado de color y mapa base.
--   **Escalado por Cuantiles**: Visualización inteligente de la densidad de población mediante percentiles, asegurando una distribución de colores equilibrada que resalta las variaciones locales sin verse afectada por valores extremos (outliers).
--   **Análisis de Monte Carlo**: Estimación precisa de población en intersecciones mediante muestreo aleatorio dinámico.
--   **Interfaz Moderna**: Spinner de carga integrado en el mapa, diseño profesional y visualización de datos detallada en popups.
+2. **L'Hospitalet**:
+   - [Padrón Municipal por Barrios](https://opendata-l-h.digital/dataset/habitants-per-barris-i-edades-any-2025) — Datos 2025
+   - [Divisiones Territoriales](https://opendata-l-h.digital/dataset/territori-divisions-territorials) — Cartografía de Barrios
 
-## 🛠️ Instalación
+## Características Principales
 
-1.  **Clonar el repositorio**:
-    ```bash
-    git clone https://github.com/erpallaga/Censo-Territorio.git
-    cd Censo-Territorio
-    ```
+- **Multi-ciudad**: Visualización simultánea de Barcelona (1.068 secciones censales) y L'Hospitalet (13 barrios).
+- **Cálculo por KML**: Sube un polígono `.kml` y obtén la población estimada, incluso si el área abarca ambas ciudades.
+- **100% en el navegador**: El algoritmo Monte Carlo + ray-casting corre en JavaScript, sin ninguna llamada al servidor.
+- **Escalado por cuantiles**: 7 grupos con igual número de zonas, evitando que outliers distorsionen el mapa de calor.
+- **Visualización KML**: El área seleccionada se resalta con estilo "Carbon Black" (línea gruesa, color neutro), siempre visible sobre el degradado de densidad.
 
-2.  **Preparar el entorno virtual** (si no existe):
-    ```powershell
-    python -m venv venv
-    ```
+## Arquitectura
 
-3.  **Activar el entorno e instalar dependencias**:
-    ```powershell
-    .\venv\Scripts\activate
-    pip install -r requirements.txt
-    ```
+El proyecto es un **sitio estático puro** servido desde `public/`:
 
-4.  **Archivos de datos**:
-    El proyecto requiere que los archivos CSV estén organizados de la siguiente manera:
-    - `/2025_pad_mdbas.csv` (BCN Padrón)
-    - `/BarcelonaCiutat_SeccionsCensals.csv` (BCN Geometría)
-    - `/L'Hospitalet/06ff0a2d-f6f8-4bf5-9ac1-ed09fda42a8b.csv` (LH Padrón)
-    - `/L'Hospitalet/TERRITORI_DIVISIONS_BAR.csv` (LH Geometría)
-
-## 🚀 Uso
-
-1.  **Ejecutar el servidor**:
-    Utilizando el entorno virtual directamente:
-    ```powershell
-    .\venv\Scripts\python.exe app.py
-    ```
-
-2.  **Acceder a la aplicación**:
-    Abre `http://localhost:5000` en tu navegador. Ambas ciudades se cargarán automáticamente.
-
-3.  **Procesar una zona**:
-    - Sube un archivo `.kml`.
-    - La aplicación sumará la población de todas las zonas (de ambas ciudades) intersectadas por el polígono.
-
-## 🧠 Detalles Técnicos
-
-### Color por Cuantiles
-Para evitar que las zonas industriales o parques (densidad baja) y los bloques densos (densidad alta) oculten la variabilidad del resto del mapa, implementamos una escala de cuantiles. Esto divide los datos en 7 grupos con igual número de secciones, permitiendo que cada color de la leyenda represente un segmento real de la población local.
-
-### Estimación de Intersección
-Se utiliza una simulación de Monte Carlo con muestreo dinámico (hasta 10,000 puntos) para estimar qué porcentaje de la población de cada zona censal recae dentro del polígono KML subido por el usuario.
-
-### Gestión de Capas (Z-Index)
-Para garantizar la visibilidad de las selecciones del usuario, se implementaron panes personalizados en Leaflet. El polígono KML se renderiza en un pane superior (z-index 650), manteniéndose siempre por encima de las zonas censales y el mapa base, evitando que los colores de densidad oculten los límites del área de estudio.
-
-## 📁 Estructura del Proyecto
-
-```text
-.
-├── app.py                      # Servidor Flask (API y Rutas)
-├── census_calculator.py        # Núcleo lógico y algoritmos espaciales
-├── requirements.txt            # Dependencias (Pandas, NumPy, Flask)
-├── templates/
-│   └── index.html             # Interfaz de usuario (JavaScript + Leaflet)
-├── static/
-│   └── style.css              # Diseño y animaciones
-├── 2025_pad_mdbas.csv         # Datos demográficos oficiales
-└── BarcelonaCiutat_SeccionsCensals.csv  # Límites cartográficos
+```
+public/
+├── index.html          # Interfaz principal (Leaflet.js)
+├── script.js           # Lógica del mapa y carga de datos
+├── calculator.js       # Puerto JS del algoritmo Monte Carlo (sin servidor)
+├── style.css           # Estilos
+└── geojson/
+    ├── barcelona.json  # GeoJSON pre-generado (1.068 secciones, ~4 MB)
+    └── l_hospitalet.json
 ```
 
-## ⚖️ Licencia
+Los archivos GeoJSON se generan una vez localmente con `scripts/generate_geojson.py` y se commitean al repositorio. Vercel simplemente sirve el directorio `public/` — sin builds, sin Lambdas.
+
+## Detalles Técnicos
+
+### Estimación de Intersección (Monte Carlo)
+Para cada zona censal que solapa con el polígono KML, se lanzan entre 1.000 y 10.000 puntos aleatorios dentro del bounding box de la zona. La proporción de puntos que caen dentro del polígono KML estima el porcentaje de población a sumar. El muestreo es dinámico: más puntos cuando hay pocas zonas candidatas, menos cuando hay muchas.
+
+### Escalado por Cuantiles
+Para evitar que zonas industriales (densidad baja) o bloques muy densos (densidad alta) oculten la variabilidad del resto, se divide el rango de datos en 7 grupos con igual número de secciones. Cada color de la leyenda representa un segmento real de la distribución local.
+
+### Z-Index de Capas
+El polígono KML se renderiza en un pane propio de Leaflet (z-index 650), siempre por encima de las zonas censales, evitando que los colores de densidad oculten el área de estudio.
+
+---
+
+## Desarrollo Local
+
+### Ejecutar la app
+
+La app es estática — cualquier servidor HTTP sirve:
+
+```bash
+cd public
+python -m http.server 8000
+# Abre http://localhost:8000
+```
+
+O con Node.js:
+```bash
+npx serve public
+```
+
+### Regenerar los GeoJSON
+
+Solo necesario si cambian los datos fuente (CSV). Requiere Python con las dependencias de `requirements.txt`:
+
+```bash
+# 1. Instalar dependencias
+python -m venv venv
+source venv/bin/activate          # Windows: .\venv\Scripts\activate
+pip install -r requirements.txt
+
+# 2. Colocar los archivos de datos:
+#    - /2025_pad_mdbas.csv
+#    - /BarcelonaCiutat_SeccionsCensals.csv
+#    - /L'Hospitalet/06ff0a2d-f6f8-4bf5-9ac1-ed09fda42a8b.csv
+#    - /L'Hospitalet/TERRITORI_DIVISIONS_BAR.csv
+
+# 3. Generar GeoJSON
+python scripts/generate_geojson.py
+# Genera public/geojson/barcelona.json y public/geojson/l_hospitalet.json
+```
+
+Los archivos generados deben commitearse al repositorio para que Vercel los sirva.
+
+---
+
+## Estructura del Proyecto
+
+```
+.
+├── public/                         # Sitio estático (lo que sirve Vercel)
+│   ├── index.html
+│   ├── script.js
+│   ├── calculator.js               # Algoritmo Monte Carlo en JS
+│   ├── style.css
+│   └── geojson/
+│       ├── barcelona.json
+│       └── l_hospitalet.json
+├── scripts/
+│   └── generate_geojson.py         # Regenera los GeoJSON desde los CSV
+├── api/                            # Código Python de referencia (no se usa en prod)
+│   └── _shared/
+│       ├── data_loader.py
+│       └── census_calculator.py
+├── vercel.json                     # { "outputDirectory": "public" }
+├── requirements.txt                # Solo necesario para regenerar GeoJSON
+├── 2025_pad_mdbas.csv              # Datos demográficos BCN
+└── BarcelonaCiutat_SeccionsCensals.csv
+```
+
+## Licencia
 
 Proyecto desarrollado con fines educativos y de análisis territorial. Datos propiedad de los Ayuntamientos de Barcelona y L'Hospitalet bajo licencias de datos abiertos.
