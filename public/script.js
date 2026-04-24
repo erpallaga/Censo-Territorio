@@ -1,45 +1,83 @@
-// Initialize map centered on Barcelona
-const map = L.map('map').setView([41.3851, 2.1734], 12);
+const MOBILE_BREAKPOINT = 768;
 
-// Create custom panes for layer ordering
-if (!map.getPane('kmlPane')) {
-    map.createPane('kmlPane');
-    map.getPane('kmlPane').style.zIndex = 650; // Above censusPane (500)
-}
-if (!map.getPane('censusPane')) {
-    map.createPane('censusPane');
-    map.getPane('censusPane').style.zIndex = 500; // Above KML pane
+const map = L.map("map", {
+    zoomControl: true
+}).setView([41.3851, 2.1734], 12);
+
+if (!map.getPane("kmlPane")) {
+    map.createPane("kmlPane");
+    map.getPane("kmlPane").style.zIndex = 650;
 }
 
-// Add OpenStreetMap tiles
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors'
+if (!map.getPane("censusPane")) {
+    map.createPane("censusPane");
+    map.getPane("censusPane").style.zIndex = 500;
+}
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors"
 }).addTo(map);
 
-// Global state
 let censusZonesLayer = null;
 let uploadedZoneLayer = null;
-let currentCity = 'barcelona';
-const cities = ['barcelona', 'l_hospitalet'];
+const cities = ["barcelona", "l_hospitalet"];
+let currentMode = "density";
 
-// Visualization mode: 'density' or 'population'
-let currentMode = 'density';
-
-// Density state
 let densityMax = 0;
 let densityMin = Infinity;
-let visibleDensities = new Set();
+const visibleDensities = new Set();
 let densityThresholds = [];
 
-// Population state
 let populationMax = 0;
 let populationMin = Infinity;
-let visiblePopulations = new Set();
+const visiblePopulations = new Set();
 let populationThresholds = [];
 
-// ── Color palettes ──────────────────────────────────────────────
-const densityColors = ['#006837', '#238b45', '#74c476', '#fed976', '#fd8d3c', '#e31a1c', '#99000d'];
-const populationColors = ['#deebf7', '#c6dbef', '#9ecae1', '#6baed6', '#4292c6', '#2171b5', '#084594'];
+const densityColors = ["#006837", "#238b45", "#74c476", "#fed976", "#fd8d3c", "#e31a1c", "#99000d"];
+const populationColors = ["#deebf7", "#c6dbef", "#9ecae1", "#6baed6", "#4292c6", "#2171b5", "#084594"];
+
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("kml-file");
+const dropzoneText = document.getElementById("dropzone-text");
+const uploadForm = document.getElementById("upload-form");
+const loading = document.getElementById("loading");
+const statsPanel = document.getElementById("stats-panel");
+const calculateBtn = document.getElementById("calculate-btn");
+const resetViewBtn = document.getElementById("reset-view-btn");
+
+function setHasResultsState(enabled) {
+    document.body.classList.toggle("has-results", enabled);
+}
+
+function setResetEnabled(enabled) {
+    resetViewBtn.disabled = !enabled;
+}
+
+function isMobileViewport() {
+    return window.innerWidth <= MOBILE_BREAKPOINT;
+}
+
+function getMapPadding() {
+    return isMobileViewport() ? [24, 24] : [50, 50];
+}
+
+function invalidateMapSize() {
+    window.requestAnimationFrame(() => {
+        map.invalidateSize();
+    });
+}
+
+function focusMapSection() {
+    if (!isMobileViewport()) return;
+
+    const mapSection = document.querySelector(".map-section");
+    if (!mapSection) return;
+
+    mapSection.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+    });
+}
 
 function getDensityColor(density) {
     if (densityThresholds.length === 0) return densityColors[0];
@@ -63,51 +101,51 @@ function getPopulationColor(population) {
     return populationColors[6];
 }
 
-// Generic: get color for a feature based on current mode
 function getFeatureColor(feature) {
-    if (currentMode === 'population') {
+    if (currentMode === "population") {
         return getPopulationColor(feature.properties.population || 0);
     }
+
     return getDensityColor(feature.properties.density || 0);
 }
 
-// ── Quantiles ────────────────────────────────────────────────────
 function getQuantiles(data, numBuckets) {
     if (data.length === 0) return [];
+
     const sorted = [...data].sort((a, b) => a - b);
     const quantiles = [];
-    for (let i = 1; i < numBuckets; i++) {
+
+    for (let i = 1; i < numBuckets; i += 1) {
         const index = (i / numBuckets) * (sorted.length - 1);
         const low = Math.floor(index);
         const high = Math.ceil(index);
         const weight = index - low;
         quantiles.push(sorted[low] * (1 - weight) + sorted[high] * weight);
     }
+
     return quantiles;
 }
 
-// ── Apply visualization (re-color all visible layers) ────────────
 function applyVisualization() {
     if (!censusZonesLayer) return;
-    censusZonesLayer.eachLayer(layer => {
-        // Only re-color visible layers (opacity > 0)
+
+    censusZonesLayer.eachLayer((layer) => {
         if (layer.options && layer.options.fillOpacity === 0) return;
+
         const color = getFeatureColor(layer.feature);
         layer.setStyle({ fillColor: color });
     });
 }
 
-// ── Legend ────────────────────────────────────────────────────────
 function updateLegend() {
-    const legendContent = document.getElementById('legend-content');
-
-    const isDensity = currentMode === 'density';
+    const legendContent = document.getElementById("legend-content");
+    const isDensity = currentMode === "density";
     const colors = isDensity ? densityColors : populationColors;
     const thresholds = isDensity ? densityThresholds : populationThresholds;
     const minVal = isDensity ? densityMin : populationMin;
     const maxVal = isDensity ? densityMax : populationMax;
-    const unit = isDensity ? 'hab/km²' : 'hab';
-    const basedOn = isDensity ? 'densidad poblacional' : 'población absoluta';
+    const unit = isDensity ? "hab/km2" : "hab";
+    const basedOn = isDensity ? "densidad poblacional" : "poblacion absoluta";
 
     if (maxVal === 0 || minVal === Infinity || thresholds.length === 0) {
         legendContent.innerHTML = '<p style="font-size: 0.9em; color: #666; font-style: italic;">Cargando...</p>';
@@ -126,7 +164,7 @@ function updateLegend() {
         `;
     } else {
         const fullThresholds = [minVal, ...thresholds, maxVal];
-        for (let i = 0; i < colors.length; i++) {
+        for (let i = 0; i < colors.length; i += 1) {
             const lo = fullThresholds[i];
             const hi = fullThresholds[i + 1];
             legendHTML += `
@@ -138,26 +176,29 @@ function updateLegend() {
         }
     }
 
-    legendHTML += '</div>';
+    legendHTML += "</div>";
     legendHTML += `<p style="margin-top: 10px; font-size: 0.85em; color: #666;">Basado en ${basedOn}</p>`;
     legendContent.innerHTML = legendHTML;
 }
 
-// ── Compute stats from a set of features ─────────────────────────
 function computeStatsFromFeatures(features) {
-    densityMax = 0; densityMin = Infinity;
-    populationMax = 0; populationMin = Infinity;
+    densityMax = 0;
+    densityMin = Infinity;
+    populationMax = 0;
+    populationMin = Infinity;
     visibleDensities.clear();
     visiblePopulations.clear();
 
-    features.forEach(feature => {
+    features.forEach((feature) => {
         const density = feature.properties.density || 0;
         const population = feature.properties.population || 0;
+
         if (density > 0) {
             visibleDensities.add(density);
             if (density > densityMax) densityMax = density;
             if (density < densityMin) densityMin = density;
         }
+
         if (population > 0) {
             visiblePopulations.add(population);
             if (population > populationMax) populationMax = population;
@@ -169,122 +210,228 @@ function computeStatsFromFeatures(features) {
     populationThresholds = getQuantiles(Array.from(visiblePopulations), 7);
 }
 
-// ── Load census zones ────────────────────────────────────────────
 async function loadCensusZones() {
-    const mapSpinner = document.getElementById('map-spinner');
+    const mapSpinner = document.getElementById("map-spinner");
+
     try {
         if (censusZonesLayer) map.removeLayer(censusZonesLayer);
         if (uploadedZoneLayer) map.removeLayer(uploadedZoneLayer);
 
         updateLegend();
-        if (mapSpinner) mapSpinner.classList.add('show');
+        if (mapSpinner) mapSpinner.classList.add("show");
 
-        // Load census zones for all cities in parallel
-        const fetchPromises = cities.map(city =>
-            fetch(`/api/census-zones?city=${city}`).then(r => r.json())
+        const fetchPromises = cities.map((city) =>
+            fetch(`/api/census-zones?city=${city}`).then((response) => response.json())
         );
 
         const results = await Promise.all(fetchPromises);
-
-        // Merge GeoJSON features
         const combinedGeojson = {
-            type: 'FeatureCollection',
+            type: "FeatureCollection",
             features: []
         };
 
-        results.forEach(geojson => {
+        results.forEach((geojson) => {
             if (geojson.features) {
                 combinedGeojson.features.push(...geojson.features);
             }
         });
 
-        // Compute density + population stats
         computeStatsFromFeatures(combinedGeojson.features);
         updateLegend();
 
         censusZonesLayer = L.geoJSON(combinedGeojson, {
-            pane: 'censusPane',
-            style: function (feature) {
+            pane: "censusPane",
+            style(feature) {
                 const color = getFeatureColor(feature);
-                return { color: '#333', weight: 1, fillColor: color, fillOpacity: 0.6 };
+                return { color: "#24453d", weight: 1, fillColor: color, fillOpacity: 0.6 };
             },
-            onEachFeature: function (feature, layer) {
+            onEachFeature(feature, layer) {
                 const props = feature.properties;
-                const isLH = props.join_key && !isNaN(props.join_key) && parseInt(props.join_key) < 1000;
+                const isLH = props.join_key && !Number.isNaN(Number.parseInt(props.join_key, 10)) && Number.parseInt(props.join_key, 10) < 1000;
 
                 let popupContent = "";
                 if (props.district && props.district !== "Barris") {
                     popupContent += `<strong>${props.district}</strong><br>`;
                 }
 
-                const neighborhoodLabel = (props.district === "Barris" || isLH) ? `<strong>${props.neighborhood}</strong>` : props.neighborhood;
-                popupContent += `${neighborhoodLabel}<br>`;
+                const neighborhoodLabel = (props.district === "Barris" || isLH)
+                    ? `<strong>${props.neighborhood}</strong>`
+                    : props.neighborhood;
 
-                popupContent += `Población: <strong>${props.population.toLocaleString()}</strong><br>
-                                Área: ${(props.area_km2 || 0).toFixed(2)} km²<br>
-                                Densidad: <strong>${(props.density || 0).toLocaleString()} hab/km²</strong>`;
+                popupContent += `${neighborhoodLabel}<br>`;
+                popupContent += `Poblacion: <strong>${props.population.toLocaleString()}</strong><br>
+                    Area: ${(props.area_km2 || 0).toFixed(2)} km2<br>
+                    Densidad: <strong>${(props.density || 0).toLocaleString()} hab/km2</strong>`;
 
                 layer.bindPopup(popupContent);
             }
         }).addTo(map);
 
-        // Zoom to fit all zones
-        map.fitBounds(censusZonesLayer.getBounds());
+        map.fitBounds(censusZonesLayer.getBounds(), { padding: getMapPadding() });
+        invalidateMapSize();
     } catch (error) {
-        console.error('Error loading census zones:', error);
-        alert('Error al cargar las zonas censales');
+        console.error("Error loading census zones:", error);
+        alert("Error al cargar las zonas censales");
     } finally {
-        if (mapSpinner) mapSpinner.classList.remove('show');
+        if (mapSpinner) mapSpinner.classList.remove("show");
     }
 }
 
-// ── Toggle event listeners ───────────────────────────────────────
-document.querySelectorAll('.legend-toggle-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+document.querySelectorAll(".legend-toggle-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
         if (btn.dataset.mode === currentMode) return;
-        // Update active class
-        document.querySelectorAll('.legend-toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        // Switch mode
+
+        document.querySelectorAll(".legend-toggle-btn").forEach((button) => button.classList.remove("active"));
+        btn.classList.add("active");
         currentMode = btn.dataset.mode;
         updateLegend();
         applyVisualization();
     });
 });
 
-// ── Handle form submission ───────────────────────────────────────
-document.getElementById('upload-form').addEventListener('submit', async function (e) {
-    e.preventDefault();
+["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+    dropzone.addEventListener(eventName, preventDefaults, false);
+});
+
+function preventDefaults(event) {
+    event.preventDefault();
+    event.stopPropagation();
+}
+
+["dragenter", "dragover"].forEach((eventName) => {
+    dropzone.addEventListener(eventName, () => dropzone.classList.add("dragover"), false);
+});
+
+["dragleave", "drop"].forEach((eventName) => {
+    dropzone.addEventListener(eventName, () => dropzone.classList.remove("dragover"), false);
+});
+
+dropzone.addEventListener("drop", (event) => {
+    const { files } = event.dataTransfer;
+    if (files.length > 0) {
+        fileInput.files = files;
+        handleFiles(files[0]);
+    }
+});
+
+fileInput.addEventListener("change", function onFileChange() {
+    if (this.files.length > 0) {
+        handleFiles(this.files[0]);
+    }
+});
+
+function handleFiles(file) {
+    if (file.name.toLowerCase().endsWith(".kml")) {
+        dropzoneText.textContent = `Archivo cargado: ${file.name}`;
+        dropzoneText.classList.add("has-file");
+
+        const reader = new FileReader();
+        reader.onload = function onLoad(event) {
+            const kmlText = event.target.result;
+
+            try {
+                const geojson = simpleKMLToGeoJSON(kmlText, file.name);
+                if (geojson) {
+                    if (uploadedZoneLayer) map.removeLayer(uploadedZoneLayer);
+
+                    uploadedZoneLayer = L.geoJSON(geojson, {
+                        pane: "kmlPane",
+                        style: {
+                            color: "#2D3436",
+                            weight: 5,
+                            opacity: 1,
+                            dashArray: "10, 10",
+                            fillColor: "#2D3436",
+                            fillOpacity: 0.1
+                        }
+                    }).addTo(map);
+
+                    map.fitBounds(uploadedZoneLayer.getBounds(), { padding: getMapPadding() });
+                    invalidateMapSize();
+                    focusMapSection();
+                }
+            } catch (error) {
+                console.error("Error parsing KML for preview", error);
+            }
+
+            window.setTimeout(() => {
+                uploadForm.requestSubmit();
+            }, 50);
+        };
+
+        reader.readAsText(file);
+    } else {
+        dropzoneText.textContent = "Error: por favor, sube un archivo KML valido";
+        dropzoneText.classList.remove("has-file");
+        fileInput.value = "";
+    }
+}
+
+function simpleKMLToGeoJSON(kmlText, filename) {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(kmlText, "text/xml");
+
+    let coordsStr = null;
+    const allElements = xmlDoc.getElementsByTagName("*");
+    for (let i = 0; i < allElements.length; i += 1) {
+        if (allElements[i].localName === "coordinates") {
+            coordsStr = allElements[i].textContent;
+            break;
+        }
+    }
+
+    if (!coordsStr) return null;
+
+    const coordsList = coordsStr.trim().split(/\s+/);
+    const coordinates = coordsList.map((coord) => {
+        const parts = coord.split(",");
+        return [Number.parseFloat(parts[0]), Number.parseFloat(parts[1])];
+    }).filter((coord) => !Number.isNaN(coord[0]) && !Number.isNaN(coord[1]));
+
+    if (coordinates.length < 3) return null;
+
+    return {
+        type: "Feature",
+        properties: { name: filename },
+        geometry: {
+            type: "Polygon",
+            coordinates: [coordinates]
+        }
+    };
+}
+
+uploadForm.addEventListener("submit", async function onSubmit(event) {
+    event.preventDefault();
     const formData = new FormData(this);
 
-    const loading = document.getElementById('loading');
-    const statsPanel = document.getElementById('stats-panel');
-    const calculateBtn = document.getElementById('calculate-btn');
-
-    loading.classList.add('show');
-    statsPanel.classList.remove('show');
+    loading.classList.add("show");
+    statsPanel.classList.remove("show");
     calculateBtn.disabled = true;
 
     try {
-        const response = await fetch('/api/calculate-population', {
-            method: 'POST',
+        const response = await fetch("/api/calculate-population", {
+            method: "POST",
             body: formData
         });
+
         const data = await response.json();
 
         if (response.ok) {
-            document.getElementById('total-population').textContent = data.population.toLocaleString();
-            statsPanel.classList.add('show');
+            setHasResultsState(true);
+            setResetEnabled(true);
+            document.getElementById("total-population").textContent = data.population.toLocaleString();
+            statsPanel.classList.add("show");
 
             if (uploadedZoneLayer) map.removeLayer(uploadedZoneLayer);
+
             uploadedZoneLayer = L.geoJSON(data.geojson, {
-                pane: 'kmlPane',
+                pane: "kmlPane",
                 style: {
-                    color: '#2D3436',
-                    weight: 6,
+                    color: "#2D3436",
+                    weight: 5,
                     opacity: 1,
-                    dashArray: '10, 10',
-                    fillColor: '#2D3436',
+                    dashArray: "10, 10",
+                    fillColor: "#2D3436",
                     fillOpacity: 0.1
                 }
             }).addTo(map);
@@ -292,12 +439,11 @@ document.getElementById('upload-form').addEventListener('submit', async function
             if (censusZonesLayer) {
                 const intersectingKeys = new Set();
                 if (data.statistics && data.statistics.intersecting_zones) {
-                    data.statistics.intersecting_zones.forEach(zone => intersectingKeys.add(zone.join_key));
+                    data.statistics.intersecting_zones.forEach((zone) => intersectingKeys.add(zone.join_key));
                 }
 
-                // Collect visible features for stats recalculation
                 const visibleFeatures = [];
-                censusZonesLayer.eachLayer(layer => {
+                censusZonesLayer.eachLayer((layer) => {
                     const key = layer.feature.properties.join_key;
                     if (intersectingKeys.has(key)) {
                         visibleFeatures.push(layer.feature);
@@ -307,11 +453,9 @@ document.getElementById('upload-form').addEventListener('submit', async function
                     }
                 });
 
-                // Recalculate stats for visible zones only
                 computeStatsFromFeatures(visibleFeatures);
 
-                // Re-color visible zones based on current mode
-                censusZonesLayer.eachLayer(layer => {
+                censusZonesLayer.eachLayer((layer) => {
                     if (intersectingKeys.has(layer.feature.properties.join_key)) {
                         const color = getFeatureColor(layer.feature);
                         layer.setStyle({ fillColor: color });
@@ -321,36 +465,53 @@ document.getElementById('upload-form').addEventListener('submit', async function
                 updateLegend();
                 censusZonesLayer.bringToFront();
             }
-            map.fitBounds(uploadedZoneLayer.getBounds(), { padding: [50, 50] });
-        } else alert('Error: ' + data.error);
+
+            map.fitBounds(uploadedZoneLayer.getBounds(), { padding: getMapPadding() });
+            invalidateMapSize();
+            focusMapSection();
+        } else {
+            setHasResultsState(false);
+            setResetEnabled(false);
+            alert(`Error: ${data.error}`);
+        }
     } catch (error) {
-        console.error('Error:', error);
-        alert('Error al procesar el archivo KML');
+        setHasResultsState(false);
+        setResetEnabled(false);
+        console.error("Error:", error);
+        alert("Error al procesar el archivo KML");
     } finally {
-        loading.classList.remove('show');
+        loading.classList.remove("show");
         calculateBtn.disabled = false;
     }
 });
 
-// ── Reset view button ────────────────────────────────────────────
-document.getElementById('reset-view-btn').addEventListener('click', () => {
-    if (censusZonesLayer) {
-        // Collect all features for stats recalculation
-        const allFeatures = [];
-        censusZonesLayer.eachLayer(l => {
-            allFeatures.push(l.feature);
-        });
+resetViewBtn.addEventListener("click", () => {
+    if (!censusZonesLayer) return;
 
-        computeStatsFromFeatures(allFeatures);
+    const allFeatures = [];
+    censusZonesLayer.eachLayer((layer) => {
+        allFeatures.push(layer.feature);
+    });
 
-        censusZonesLayer.eachLayer(layer => {
-            const color = getFeatureColor(layer.feature);
-            layer.setStyle({ fillColor: color, fillOpacity: 0.6, opacity: 1 });
-        });
-        updateLegend();
-        map.fitBounds(censusZonesLayer.getBounds());
-    }
+    computeStatsFromFeatures(allFeatures);
+
+    censusZonesLayer.eachLayer((layer) => {
+        const color = getFeatureColor(layer.feature);
+        layer.setStyle({ fillColor: color, fillOpacity: 0.6, opacity: 1 });
+    });
+
+    updateLegend();
+    map.fitBounds(censusZonesLayer.getBounds(), { padding: getMapPadding() });
+    invalidateMapSize();
+    focusMapSection();
 });
 
-// Initial load
-loadCensusZones();
+window.addEventListener("resize", invalidateMapSize);
+window.addEventListener("orientationchange", () => {
+    window.setTimeout(invalidateMapSize, 150);
+});
+
+loadCensusZones().finally(() => {
+    setResetEnabled(false);
+    invalidateMapSize();
+});
