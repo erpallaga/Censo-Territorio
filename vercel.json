@@ -1,7 +1,15 @@
 {
   "version": 2,
   "functions": {
-    "api/**/*.py": {
+    "api/calculate-population.py": {
+      "includeFiles": "data/**",
+      "maxDuration": 60
+    },
+    "api/census-zones.py": {
+      "includeFiles": "data/**",
+      "maxDuration": 60
+    },
+    "api/zone-stats/**/*.py": {
       "includeFiles": "data/**",
       "maxDuration": 60
     }
