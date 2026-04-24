@@ -1,35 +1,11 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/calculate-population.py",
-      "use": "@vercel/python",
-      "config": {
-        "includeFiles": "data/**",
-        "maxLambdaDuration": 60
-      }
-    },
-    {
-      "src": "api/census-zones.py",
-      "use": "@vercel/python",
-      "config": {
-        "includeFiles": "data/**",
-        "maxLambdaDuration": 60
-      }
-    },
-    {
-      "src": "api/zone-stats/**/*.py",
-      "use": "@vercel/python",
-      "config": {
-        "includeFiles": "data/**",
-        "maxLambdaDuration": 60
-      }
-    },
-    {
-      "src": "public/**",
-      "use": "@vercel/static"
+  "functions": {
+    "api/**/*.py": {
+      "includeFiles": "data/**",
+      "maxDuration": 60
     }
-  ],
+  },
   "routes": [
     {
       "src": "/api/(.*)",
@@ -48,5 +24,6 @@
       "dest": "/public/index.html"
     }
   ],
+  "cleanUrls": true,
   "$schema": "https://openapi.vercel.sh/vercel.json"
 }
