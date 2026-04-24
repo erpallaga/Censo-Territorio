@@ -295,7 +295,7 @@ def get_census_zones_geojson(secc_df, pad_df, sample_size=None, city_config=None
             density = float(population / area_km2 if area_km2 > 0 else 0)
             area_km2 = float(area_km2)
             
-            coords = [[float(coord[0]), float(coord[1])] for coord in poly]
+            coords = [[round(float(coord[0]), 5), round(float(coord[1]), 5)] for coord in poly]
             
             # Handle possible missing columns in some datasets
             dist_name = str(row.get(city_config['col_district'], ''))

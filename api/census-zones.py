@@ -43,7 +43,7 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            self.wfile.write(json.dumps(geojson).encode())
+            self.wfile.write(json.dumps(geojson, separators=(',', ':')).encode())
             
         except Exception as e:
             error_trace = traceback.format_exc()

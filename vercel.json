@@ -5,7 +5,8 @@
       "src": "api/**/*.py",
       "use": "@vercel/python",
       "config": {
-        "includeFiles": "data/**"
+        "includeFiles": "data/**",
+        "maxLambdaDuration": 60
       }
     },
     {
@@ -31,9 +32,5 @@
       "dest": "/public/index.html"
     }
   ],
-  "functions": {
-    "api/**/*.py": {
-      "maxDuration": 60
-    }
-  }
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }

@@ -89,7 +89,7 @@ class handler(BaseHTTPRequestHandler):
                     continue
             
             # Convert polygon to GeoJSON for map display
-            coords = [[float(coord[0]), float(coord[1])] for coord in kml_poly]
+            coords = [[round(float(coord[0]), 5), round(float(coord[1]), 5)] for coord in kml_poly]
             geojson = {
                 'type': 'Feature',
                 'geometry': {
@@ -115,7 +115,7 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            self.wfile.write(json.dumps(result).encode())
+            self.wfile.write(json.dumps(result, separators=(',', ':')).encode())
             
         except Exception as e:
             error_trace = traceback.format_exc()
